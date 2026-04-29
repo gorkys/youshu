@@ -2,6 +2,8 @@ package com.youshu.app.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.youshu.app.data.local.dao.CategoryDao
+import com.youshu.app.data.local.entity.Category
 import com.youshu.app.data.local.entity.ItemDetail
 import com.youshu.app.data.repository.ItemRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -15,7 +17,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val itemRepository: ItemRepository
+    private val itemRepository: ItemRepository,
+    private val categoryDao: CategoryDao
 ) : ViewModel() {
 
     private val sevenDaysMs = 7 * 24 * 60 * 60 * 1000L
@@ -30,6 +33,9 @@ class HomeViewModel @Inject constructor(
     val expiringCount: StateFlow<Int> = itemRepository
         .getExpiringCount(System.currentTimeMillis() + sevenDaysMs)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    val categories: StateFlow<List<Category>> = categoryDao.getAllCategories()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
