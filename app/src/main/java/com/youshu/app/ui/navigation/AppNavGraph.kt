@@ -57,6 +57,7 @@ import androidx.navigation.navArgument
 import com.youshu.app.ui.screen.camera.CameraScreen
 import com.youshu.app.ui.screen.category.CategoryScreen
 import com.youshu.app.ui.screen.detail.DetailScreen
+import com.youshu.app.ui.screen.edit.EditScreen
 import com.youshu.app.ui.screen.expiry.ExpiryScreen
 import com.youshu.app.ui.screen.home.HomeScreen
 import com.youshu.app.ui.screen.save.SaveScreen
@@ -169,7 +170,7 @@ fun AppNavGraph() {
                 DetailScreen(
                     itemId = itemId,
                     onBack = { navController.popBackStack() },
-                    onEdit = { /* TODO: implement edit */ }
+                    onEdit = { id -> navController.navigate(Screen.Edit.createRoute(id)) }
                 )
             }
 
@@ -195,6 +196,20 @@ fun AppNavGraph() {
                     onBack = { navController.popBackStack() },
                     onNavigateToDetail = { id ->
                         navController.navigate(Screen.Detail.createRoute(id))
+                    }
+                )
+            }
+
+            composable(
+                route = Screen.Edit.route,
+                arguments = listOf(navArgument("itemId") { type = NavType.LongType })
+            ) { backStackEntry ->
+                val itemId = backStackEntry.arguments?.getLong("itemId") ?: return@composable
+                EditScreen(
+                    itemId = itemId,
+                    onBack = { navController.popBackStack() },
+                    onSaved = {
+                        navController.popBackStack()
                     }
                 )
             }

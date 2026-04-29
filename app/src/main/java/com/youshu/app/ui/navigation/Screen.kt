@@ -13,4 +13,7 @@ sealed class Screen(val route: String) {
     data object Category : Screen("category")
     data object Profile : Screen("profile")
     data object Expiry : Screen("expiry")
+    data object Edit : Screen("edit/{itemId}") {
+        fun createRoute(itemId: Long) = "edit/$itemId"
+    }
 }
