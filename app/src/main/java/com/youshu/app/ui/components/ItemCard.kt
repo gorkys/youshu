@@ -51,12 +51,12 @@ fun ItemCard(
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Image
@@ -66,14 +66,14 @@ fun ItemCard(
                     contentDescription = item.name,
                     modifier = Modifier
                         .size(64.dp)
-                        .clip(RoundedCornerShape(12.dp)),
+                        .clip(RoundedCornerShape(14.dp)),
                     contentScale = ContentScale.Crop
                 )
             } else {
                 Box(
                     modifier = Modifier
                         .size(64.dp)
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(RoundedCornerShape(14.dp))
                         .background(Color(0xFFFFF3E0)),
                     contentAlignment = Alignment.Center
                 ) {
@@ -86,7 +86,7 @@ fun ItemCard(
                 }
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(14.dp))
 
             // Info
             Column(modifier = Modifier.weight(1f)) {
@@ -123,6 +123,25 @@ fun ItemCard(
                         CategoryTag(text = itemDetail.categoryName)
                     }
                 }
+
+                Spacer(modifier = Modifier.height(2.dp))
+
+                // Quantity info
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "${item.quantity} ${item.unit}",
+                        fontSize = 12.sp,
+                        color = TextSecondary
+                    )
+                    item.price?.let { price ->
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "¥%.2f".format(price),
+                            fontSize = 12.sp,
+                            color = TextSecondary
+                        )
+                    }
+                }
             }
 
             // Expiry status
@@ -135,9 +154,10 @@ fun ItemCard(
                     else -> StatusNormal to "${days}天"
                 }
 
+                Spacer(modifier = Modifier.width(8.dp))
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(44.dp)
                         .clip(CircleShape)
                         .background(color.copy(alpha = 0.1f)),
                     contentAlignment = Alignment.Center
