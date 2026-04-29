@@ -60,6 +60,7 @@ import com.youshu.app.ui.screen.detail.DetailScreen
 import com.youshu.app.ui.screen.edit.EditScreen
 import com.youshu.app.ui.screen.expiry.ExpiryScreen
 import com.youshu.app.ui.screen.home.HomeScreen
+import com.youshu.app.ui.screen.profile.ProfileScreen
 import com.youshu.app.ui.screen.save.SaveScreen
 import com.youshu.app.ui.screen.search.SearchScreen
 import com.youshu.app.ui.theme.OrangeEnd
@@ -215,13 +216,7 @@ fun AppNavGraph() {
             }
 
             composable(Screen.Profile.route) {
-                // Placeholder for profile screen
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("我的", fontSize = 22.sp, color = Color.Gray)
-                }
+                ProfileScreen()
             }
         }
     }

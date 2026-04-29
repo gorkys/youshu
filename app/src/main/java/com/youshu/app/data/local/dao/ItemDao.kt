@@ -138,4 +138,10 @@ interface ItemDao {
           AND expireTime > 0
     """)
     fun getExpiringCount(thresholdTime: Long): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM items")
+    fun getTotalCount(): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM items WHERE status = 1")
+    fun getUsedUpCount(): Flow<Int>
 }
