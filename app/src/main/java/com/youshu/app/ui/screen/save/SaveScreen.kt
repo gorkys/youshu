@@ -150,6 +150,21 @@ fun SaveScreen(
                         .verticalScroll(rememberScrollState())
                         .padding(20.dp)
                 ) {
+                    // Drag handle
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(width = 40.dp, height = 4.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(Color(0xFFE0E0E0))
+                        )
+                    }
+
                     // Image preview
                     AsyncImage(
                         model = imageUri,
@@ -163,13 +178,28 @@ fun SaveScreen(
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    // Name field
-                    Text(
-                        text = "名称",
-                        fontSize = 13.sp,
-                        color = TextSecondary,
-                        fontWeight = FontWeight.Medium
-                    )
+                    // Name field with AI tag
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "名称",
+                            fontSize = 13.sp,
+                            color = TextSecondary,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(OrangeStart.copy(alpha = 0.1f))
+                                .padding(horizontal = 6.dp, vertical = 1.dp)
+                        ) {
+                            Text(
+                                text = "AI识别",
+                                fontSize = 10.sp,
+                                color = OrangeStart
+                            )
+                        }
+                    }
                     Spacer(modifier = Modifier.height(6.dp))
                     BasicTextField(
                         value = state.name,
