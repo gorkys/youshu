@@ -7,11 +7,18 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
@@ -199,20 +206,31 @@ private fun YouShuBottomBar(
     currentRoute: String?,
     onNavigate: (String) -> Unit
 ) {
-    Box {
+    Box(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        // Frosted glass navigation bar
         NavigationBar(
-            containerColor = Color.White,
-            tonalElevation = 8.dp
+            containerColor = Color.White.copy(alpha = 0.85f),
+            tonalElevation = 0.dp,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .windowInsetsPadding(WindowInsets.navigationBars)
         ) {
             bottomNavItems.forEachIndexed { index, item ->
                 if (index == 2) {
-                    // Spacer for center camera button
+                    // Empty space for center camera button
                     NavigationBarItem(
                         selected = false,
                         onClick = { },
-                        icon = { Box(modifier = Modifier.size(24.dp)) },
-                        label = { Text("", fontSize = 10.sp) },
-                        enabled = false
+                        icon = { Box(modifier = Modifier.height(28.dp)) },
+                        label = { },
+                        enabled = false,
+                        colors = NavigationBarItemDefaults.colors(
+                            unselectedIconColor = Color.Transparent,
+                            unselectedTextColor = Color.Transparent,
+                            indicatorColor = Color.Transparent
+                        )
                     )
                 } else {
                     val isSelected = currentRoute == item.route
@@ -230,35 +248,46 @@ private fun YouShuBottomBar(
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = OrangeStart,
                             selectedTextColor = OrangeStart,
-                            indicatorColor = OrangeStart.copy(alpha = 0.1f)
+                            unselectedIconColor = Color(0xFF8C8C8C),
+                            unselectedTextColor = Color(0xFF8C8C8C),
+                            indicatorColor = OrangeStart.copy(alpha = 0.08f)
                         )
                     )
                 }
             }
         }
 
-        // Center camera button (floating)
+        // Floating center camera button
         Box(
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .padding(top = 4.dp)
-                .size(52.dp)
-                .shadow(8.dp, CircleShape)
+                .offset(y = (-16).dp)
+                .size(60.dp)
+                .shadow(12.dp, CircleShape)
                 .clip(CircleShape)
-                .background(
-                    brush = Brush.linearGradient(
-                        colors = listOf(OrangeStart, OrangeEnd)
-                    )
-                )
+                .background(Color.White)
+                .border(3.dp, Color.White, CircleShape)
                 .clickable { onNavigate(Screen.Camera.route) },
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = Icons.Default.CameraAlt,
-                contentDescription = "拍照",
-                tint = Color.White,
-                modifier = Modifier.size(26.dp)
-            )
+            Box(
+                modifier = Modifier
+                    .size(50.dp)
+                    .clip(CircleShape)
+                    .background(
+                        brush = Brush.linearGradient(
+                            colors = listOf(OrangeStart, OrangeEnd)
+                        )
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.CameraAlt,
+                    contentDescription = "拍照",
+                    tint = Color.White,
+                    modifier = Modifier.size(26.dp)
+                )
+            }
         }
     }
 }
