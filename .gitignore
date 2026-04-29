@@ -13,3 +13,9 @@ local.properties
 *.apk
 *.ap_
 *.aab
+
+# Spec / design docs
+you-shu-prd.md
+功能与样式.md
+样板.md
+UI草图.png
