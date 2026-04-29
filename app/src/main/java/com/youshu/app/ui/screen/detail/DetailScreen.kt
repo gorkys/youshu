@@ -1,6 +1,7 @@
 package com.youshu.app.ui.screen.detail
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -103,7 +104,7 @@ fun DetailScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(320.dp)
+                    .height(340.dp)
             ) {
                 if (item.imagePath.isNotEmpty()) {
                     AsyncImage(
@@ -132,6 +133,32 @@ fun DetailScreen(
                     }
                 }
 
+                // Gradient overlay at bottom for smooth transition
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(80.dp)
+                        .align(Alignment.BottomCenter)
+                        .background(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(Color.Transparent, Color(0xFFF6F7FB))
+                            )
+                        )
+                )
+
+                // Top scrim for back button
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(100.dp)
+                        .align(Alignment.TopCenter)
+                        .background(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(Color.Black.copy(alpha = 0.3f), Color.Transparent)
+                            )
+                        )
+                )
+
                 // Back button
                 IconButton(
                     onClick = onBack,
@@ -149,7 +176,7 @@ fun DetailScreen(
                 }
             }
 
-            // Info card - overlap the image slightly
+            // Info card - overlap the image
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -325,6 +352,7 @@ private fun OutlinedActionButton(
             .height(44.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(Color.White)
+            .border(1.dp, Color(0xFFE8E8E8), RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp),
         contentAlignment = Alignment.Center
