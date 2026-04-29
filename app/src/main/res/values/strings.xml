@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">有数</string>
-    <string name="search_hint">搜索物品、位置…</string>
+    <string name="search_hint">搜索物品、位置，或说点什么…</string>
     <string name="quick_record">快速记录物品</string>
-    <string name="quick_record_subtitle">拍一下就记住</string>
+    <string name="quick_record_subtitle">拍一下，AI 帮你记住</string>
     <string name="expiring_soon">即将过期</string>
-    <string name="expiring_items_count">%d件物品</string>
+    <string name="expiring_items_count">%1$d件物品</string>
     <string name="no_items">还没有物品，拍照开始记录吧</string>
     <string name="take_photo">拍照</string>
     <string name="album">相册</string>
@@ -25,7 +25,7 @@
     <string name="note_label">备注</string>
     <string name="tab_home">首页</string>
     <string name="tab_category">分类</string>
-    <string name="tab_search">搜索</string>
+    <string name="tab_search">库房</string>
     <string name="tab_profile">我的</string>
     <string name="all_items">全部物品</string>
     <string name="recent_items">最近添加</string>
@@ -33,7 +33,7 @@
     <string name="status_in_use">在用</string>
     <string name="status_used_up">已用完</string>
     <string name="status_discarded">已丢弃</string>
-    <string name="days_remaining">%d天后过期</string>
+    <string name="days_remaining">%1$d天后过期</string>
     <string name="expired">已过期</string>
     <string name="confirm_delete">确认删除</string>
     <string name="confirm_delete_message">确定要删除这个物品吗？</string>

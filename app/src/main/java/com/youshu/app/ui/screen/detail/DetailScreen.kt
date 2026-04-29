@@ -17,29 +17,32 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,15 +57,26 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.youshu.app.data.local.entity.Item
+import com.youshu.app.ui.components.AppDecorativeBackground
+import com.youshu.app.ui.components.AppDialog
+import com.youshu.app.ui.components.AppSurfaceCard
 import com.youshu.app.ui.components.CategoryTag
 import com.youshu.app.ui.components.GradientButton
-import com.youshu.app.ui.theme.OrangeEnd
+import com.youshu.app.ui.components.PillTag
 import com.youshu.app.ui.theme.OrangeStart
 import com.youshu.app.ui.theme.StatusExpired
-import com.youshu.app.ui.theme.StatusNormal
+import com.youshu.app.ui.theme.TagGreen
+import com.youshu.app.ui.theme.TagGreenText
+import com.youshu.app.ui.theme.TagOrange
+import com.youshu.app.ui.theme.TagOrangeText
+import com.youshu.app.ui.theme.TagRed
+import com.youshu.app.ui.theme.TagRedText
+import com.youshu.app.ui.theme.TextHint
+import com.youshu.app.ui.theme.TextPrimary
 import com.youshu.app.ui.theme.TextSecondary
 import com.youshu.app.ui.viewmodel.DetailViewModel
 import com.youshu.app.util.DateUtil
+import kotlinx.coroutines.launch
 
 @Composable
 fun DetailScreen(
@@ -71,102 +85,122 @@ fun DetailScreen(
     onEdit: (Long) -> Unit,
     viewModel: DetailViewModel = hiltViewModel()
 ) {
-    val itemDetail by viewModel.itemDetail.collectAsState()
-    var showDeleteDialog by remember { mutableStateOf(false) }
+    val items by viewModel.items.collectAsState()
+    var showDeleteDialog by rememberSaveable { mutableStateOf(false) }
+    var showRateDialog by rememberSaveable { mutableStateOf(false) }
+    var pendingRating by rememberSaveable { mutableIntStateOf(5) }
+    val pagerState = rememberPagerState(pageCount = { items.size })
+    val scope = rememberCoroutineScope()
+    var didJumpToInitialPage by rememberSaveable { mutableStateOf(false) }
 
-    LaunchedEffect(itemId) {
-        viewModel.loadItem(itemId)
+    LaunchedEffect(items, itemId) {
+        if (items.isEmpty()) {
+            didJumpToInitialPage = false
+            return@LaunchedEffect
+        }
+        val initialIndex = items.indexOfFirst { it.item.id == itemId }
+        if (!didJumpToInitialPage && initialIndex >= 0) {
+            pagerState.scrollToPage(initialIndex)
+            didJumpToInitialPage = true
+        } else if (pagerState.currentPage > items.lastIndex) {
+            pagerState.scrollToPage(items.lastIndex)
+        }
     }
 
-    val detail = itemDetail
-
-    if (detail == null) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("加载中…", color = TextSecondary)
+    if (items.isEmpty()) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "正在加载物品详情…",
+                color = TextSecondary,
+                fontSize = 14.sp
+            )
         }
         return
     }
 
+    val detail = items.getOrNull(pagerState.currentPage) ?: items.first()
     val item = detail.item
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF6F7FB))
-    ) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        AppDecorativeBackground()
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .navigationBarsPadding()
         ) {
-            // Top image area
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(340.dp)
+                    .height(380.dp)
             ) {
-                if (item.imagePath.isNotEmpty()) {
-                    AsyncImage(
-                        model = item.imagePath,
-                        contentDescription = item.name,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                brush = Brush.verticalGradient(
-                                    colors = listOf(OrangeStart, OrangeEnd)
-                                )
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = item.name.take(1),
-                            fontSize = 64.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxSize()
+                ) { page ->
+                    val pageItem = items[page].item
+                    if (pageItem.imagePath.isNotEmpty()) {
+                        AsyncImage(
+                            model = pageItem.imagePath,
+                            contentDescription = pageItem.name,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
                         )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.verticalGradient(
+                                        colors = listOf(OrangeStart, Color(0xFFFFC266))
+                                    )
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = pageItem.name.take(1),
+                                fontSize = 72.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
                     }
                 }
 
-                // Gradient overlay at bottom for smooth transition
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(80.dp)
-                        .align(Alignment.BottomCenter)
+                        .height(120.dp)
                         .background(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(Color.Transparent, Color(0xFFF6F7FB))
+                            Brush.verticalGradient(
+                                colors = listOf(Color.Black.copy(alpha = 0.34f), Color.Transparent)
                             )
                         )
                 )
-
-                // Top scrim for back button
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(100.dp)
-                        .align(Alignment.TopCenter)
+                        .align(Alignment.BottomCenter)
                         .background(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(Color.Black.copy(alpha = 0.3f), Color.Transparent)
+                            Brush.verticalGradient(
+                                colors = listOf(Color.Transparent, Color(0xFFFFFBF6))
                             )
                         )
                 )
 
-                // Back button
                 IconButton(
                     onClick = onBack,
                     modifier = Modifier
                         .statusBarsPadding()
-                        .padding(8.dp)
+                        .padding(12.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.28f))
                         .align(Alignment.TopStart)
-                        .background(Color.Black.copy(alpha = 0.3f), CircleShape)
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -174,230 +208,371 @@ fun DetailScreen(
                         tint = Color.White
                     )
                 }
+
+                if (pagerState.currentPage > 0) {
+                    ArrowCircleButton(
+                        icon = Icons.Default.ChevronLeft,
+                        modifier = Modifier.align(Alignment.CenterStart)
+                    ) {
+                        scope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1) }
+                    }
+                }
+
+                if (pagerState.currentPage < items.lastIndex) {
+                    ArrowCircleButton(
+                        icon = Icons.Default.ChevronRight,
+                        modifier = Modifier.align(Alignment.CenterEnd)
+                    ) {
+                        scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) }
+                    }
+                }
+
+                Text(
+                    text = "${pagerState.currentPage + 1}/${items.size}",
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 24.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(Color.Black.copy(alpha = 0.3f))
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                )
             }
 
-            // Info card - overlap the image
-            Card(
+            AppSurfaceCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
-                    .offset(y = (-24).dp),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                    .offset(y = (-26).dp)
             ) {
-                Column(
-                    modifier = Modifier.padding(20.dp)
+                Text(
+                    text = item.name,
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Name
-                    Text(
-                        text = item.name,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold
+                    detail.categoryName?.let { CategoryTag(text = it) }
+                    detail.locationName?.let {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.LocationOn,
+                                contentDescription = null,
+                                tint = TextSecondary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = it,
+                                fontSize = 13.sp,
+                                color = TextSecondary
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+                DetailInfoRow("数量", "${item.quantity} ${item.unit}")
+                item.expireTime?.let { expireTime ->
+                    val days = DateUtil.daysUntil(expireTime)
+                    val (container, content) = when {
+                        days < 0 -> TagRed to TagRedText
+                        days <= 7 -> TagRed to TagRedText
+                        else -> TagOrange to TagOrangeText
+                    }
+                    DetailInfoRow(
+                        label = "有效期",
+                        value = DateUtil.formatDate(expireTime),
+                        tail = {
+                            PillTag(
+                                text = DateUtil.expiryCountdownText(expireTime),
+                                backgroundColor = container,
+                                contentColor = content
+                            )
+                        }
                     )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Tags row
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        detail.categoryName?.let { CategoryTag(text = it) }
-                        if (detail.locationName != null) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.LocationOn,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(14.dp),
-                                    tint = TextSecondary
-                                )
-                                Spacer(modifier = Modifier.width(2.dp))
-                                Text(
-                                    text = detail.locationName,
-                                    fontSize = 13.sp,
-                                    color = TextSecondary
-                                )
-                            }
-                        }
+                }
+                item.price?.let { price ->
+                    DetailInfoRow("价格", DateUtil.formatCurrency(price))
+                }
+                DetailInfoRow("添加时间", DateUtil.formatDateTime(item.createdAt))
+                DetailInfoRow(
+                    "状态",
+                    when (item.status) {
+                        Item.STATUS_USED_UP -> "已用完"
+                        Item.STATUS_DISCARDED -> "已丢弃"
+                        else -> "在用"
                     }
+                )
+                DetailInfoRow("备注", item.note.ifBlank { "无" })
 
-                    Spacer(modifier = Modifier.height(20.dp))
-                    HorizontalDivider(color = Color(0xFFF0F0F0))
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Details
-                    DetailRow(label = "数量", value = "${item.quantity} ${item.unit}")
-
-                    item.expireTime?.let { time ->
-                        val days = DateUtil.daysUntil(time)
-                        val color = when {
-                            days < 0 -> StatusExpired
-                            days <= 7 -> StatusExpired
-                            else -> StatusNormal
-                        }
-                        DetailRow(
-                            label = "有效期",
-                            value = DateUtil.expiryText(time),
-                            valueColor = color
+                Spacer(modifier = Modifier.height(20.dp))
+                Text(
+                    text = "评价记录",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(Color(0xFFF8F6FC))
+                        .padding(horizontal = 16.dp, vertical = 14.dp)
+                ) {
+                    when (item.rating) {
+                        null -> Text(
+                            text = if (item.status == Item.STATUS_USED_UP) {
+                                "已用完，等待评价。你可以补充口感、效果或复购建议。"
+                            } else {
+                                "还没有评价，后续可用于记录口感、效果或复购建议。"
+                            },
+                            color = TextHint,
+                            fontSize = 13.sp
                         )
+
+                        else -> Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            repeat(5) { index ->
+                                Icon(
+                                    imageVector = Icons.Default.Star,
+                                    contentDescription = null,
+                                    tint = if (index < item.rating) OrangeStart else Color(0xFFE5DFEC),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                            }
+                            Text(
+                                text = ratingText(item.rating),
+                                color = TextSecondary,
+                                fontSize = 13.sp
+                            )
+                        }
                     }
+                }
 
-                    item.price?.let { price ->
-                        DetailRow(label = "价格", value = "¥%.2f".format(price))
-                    }
-
-                    if (item.note.isNotBlank()) {
-                        DetailRow(label = "备注", value = item.note)
-                    }
-
-                    DetailRow(label = "添加时间", value = DateUtil.formatDateTime(item.createdAt))
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // Action buttons
-                    if (item.status == Item.STATUS_IN_USE) {
-                        GreenButton(
+                Spacer(modifier = Modifier.height(22.dp))
+                when (item.status) {
+                    Item.STATUS_IN_USE -> {
+                        GradientButton(
                             text = "已用完",
-                            onClick = { viewModel.markAsUsed(item.id) }
+                            onClick = {
+                                pendingRating = 5
+                                showRateDialog = true
+                            }
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                     }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        OutlinedActionButton(
-                            text = "编辑",
-                            icon = Icons.Default.Edit,
-                            onClick = { onEdit(item.id) },
-                            modifier = Modifier.weight(1f)
+                    Item.STATUS_USED_UP -> {
+                        GradientButton(
+                            text = if (item.rating == null) "去评价" else "修改评价",
+                            onClick = {
+                                pendingRating = item.rating ?: 5
+                                showRateDialog = true
+                            }
                         )
-                        OutlinedActionButton(
-                            text = "删除",
-                            icon = Icons.Default.Delete,
-                            onClick = { showDeleteDialog = true },
-                            modifier = Modifier.weight(1f),
-                            isDestructive = true
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    ActionOutlineButton(
+                        text = "编辑",
+                        icon = Icons.Default.Edit,
+                        onClick = { onEdit(item.id) },
+                        modifier = Modifier.weight(1f)
+                    )
+                    ActionOutlineButton(
+                        text = "删除",
+                        icon = Icons.Default.Delete,
+                        onClick = { showDeleteDialog = true },
+                        modifier = Modifier.weight(1f),
+                        destructive = true
+                    )
+                }
+            }
+        }
+    }
+
+    if (showDeleteDialog) {
+        AppDialog(
+            title = "确认删除",
+            subtitle = "删除后不可恢复，相关图片也会一并移除。",
+            onDismissRequest = { showDeleteDialog = false },
+            confirmText = "删除",
+            destructiveConfirm = true,
+            onConfirm = {
+                viewModel.delete(item)
+                showDeleteDialog = false
+                onBack()
+            }
+        ) {
+            Text(
+                text = "确定要删除「${item.name}」吗？",
+                color = TextSecondary,
+                fontSize = 14.sp
+            )
+        }
+    }
+
+    if (showRateDialog) {
+        AppDialog(
+            title = "给这件物品一个评价",
+            subtitle = "5 星为最好，1 星代表终身拉黑。",
+            onDismissRequest = { showRateDialog = false },
+            confirmText = if (item.status == Item.STATUS_IN_USE) "标记并保存" else "保存评价",
+            onConfirm = {
+                if (item.status == Item.STATUS_IN_USE) {
+                    viewModel.markAsUsed(item.id, pendingRating)
+                } else {
+                    viewModel.rateUsedItem(item.id, pendingRating)
+                }
+                showRateDialog = false
+            }
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                repeat(5) { index ->
+                    val selected = index < pendingRating
+                    Box(
+                        modifier = Modifier
+                            .padding(horizontal = 4.dp)
+                            .clip(CircleShape)
+                            .clickable { pendingRating = index + 1 }
+                            .padding(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (selected) Icons.Default.Star else Icons.Outlined.StarBorder,
+                            contentDescription = null,
+                            tint = if (selected) OrangeStart else Color(0xFFD5CFDE),
+                            modifier = Modifier.size(30.dp)
                         )
                     }
                 }
             }
-
-            Spacer(modifier = Modifier.height(32.dp))
+            Text(
+                text = ratingText(pendingRating),
+                color = TextSecondary,
+                fontSize = 14.sp,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
         }
     }
+}
 
-    // Delete dialog
-    if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("确认删除") },
-            text = { Text("确定要删除「${item.name}」吗？") },
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.delete(item)
-                    showDeleteDialog = false
-                    onBack()
-                }) {
-                    Text("删除", color = StatusExpired)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("取消")
-                }
-            }
+@Composable
+private fun ArrowCircleButton(
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = modifier
+            .padding(horizontal = 12.dp)
+            .size(42.dp)
+            .clip(CircleShape)
+            .background(Color.Black.copy(alpha = 0.22f))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = Color.White
         )
     }
 }
 
 @Composable
-private fun DetailRow(
+private fun DetailInfoRow(
     label: String,
     value: String,
-    valueColor: Color = Color(0xFF1F1F1F)
+    tail: @Composable (() -> Unit)? = null
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 6.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = label,
             fontSize = 14.sp,
-            color = TextSecondary
+            color = TextSecondary,
+            modifier = Modifier.width(72.dp)
         )
         Text(
             text = value,
             fontSize = 14.sp,
+            color = TextPrimary,
             fontWeight = FontWeight.Medium,
-            color = valueColor
+            modifier = Modifier.weight(1f)
         )
+        tail?.invoke()
     }
 }
 
 @Composable
-private fun GreenButton(
-    text: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(52.dp)
-            .clip(RoundedCornerShape(24.dp))
-            .background(StatusNormal)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = text,
-            color = Color.White,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.SemiBold
-        )
-    }
-}
-
-@Composable
-private fun OutlinedActionButton(
+private fun ActionOutlineButton(
     text: String,
     icon: ImageVector,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    isDestructive: Boolean = false
+    destructive: Boolean = false
 ) {
-    val color = if (isDestructive) StatusExpired else TextSecondary
-    val borderColor = if (isDestructive) StatusExpired.copy(alpha = 0.5f) else Color(0xFFE8E8E8)
+    val borderColor = if (destructive) StatusExpired.copy(alpha = 0.28f) else Color(0xFFEAE6F2)
+    val contentColor = if (destructive) StatusExpired else TextSecondary
 
     Box(
         modifier = modifier
-            .height(44.dp)
-            .clip(RoundedCornerShape(12.dp))
+            .border(1.dp, borderColor, RoundedCornerShape(22.dp))
+            .clip(RoundedCornerShape(22.dp))
             .background(Color.White)
-            .border(1.dp, borderColor, RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp),
-        contentAlignment = Alignment.Center
+            .padding(horizontal = 16.dp, vertical = 14.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                modifier = Modifier.size(18.dp),
-                tint = color
+                tint = contentColor,
+                modifier = Modifier.size(18.dp)
             )
             Spacer(modifier = Modifier.width(6.dp))
             Text(
                 text = text,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
-                color = color
+                color = contentColor
             )
         }
+    }
+}
+
+private fun ratingText(rating: Int): String {
+    return when (rating) {
+        5 -> "5 星，值得长期回购"
+        4 -> "4 星，整体不错"
+        3 -> "3 星，中规中矩"
+        2 -> "2 星，谨慎再买"
+        else -> "1 星，终身拉黑"
     }
 }

@@ -5,23 +5,22 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.RateReview
+import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,25 +30,31 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.youshu.app.ui.components.AppDecorativeBackground
+import com.youshu.app.ui.components.AppSurfaceCard
 import com.youshu.app.ui.components.EmptyState
 import com.youshu.app.ui.components.ItemCard
+import com.youshu.app.ui.components.PillTag
 import com.youshu.app.ui.components.SearchBar
+import com.youshu.app.ui.components.SectionHeader
 import com.youshu.app.ui.theme.OrangeStart
+import com.youshu.app.ui.theme.TagGreen
+import com.youshu.app.ui.theme.TagGreenText
+import com.youshu.app.ui.theme.TagOrange
+import com.youshu.app.ui.theme.TagOrangeText
+import com.youshu.app.ui.theme.TagRed
+import com.youshu.app.ui.theme.TagRedText
+import com.youshu.app.ui.theme.TextHint
+import com.youshu.app.ui.theme.TextPrimary
 import com.youshu.app.ui.theme.TextSecondary
+import com.youshu.app.ui.viewmodel.LibraryStatusFilter
 import com.youshu.app.ui.viewmodel.SearchViewModel
 
-private val searchHints = listOf(
-    "冰箱里有什么快过期的",
-    "厨房的调味品",
-    "客厅的日用品",
-    "药品"
-)
-
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SearchScreen(
     onNavigateToDetail: (Long) -> Unit,
@@ -57,103 +62,132 @@ fun SearchScreen(
 ) {
     val query by viewModel.query.collectAsState()
     val results by viewModel.results.collectAsState()
+    val selectedFilter by viewModel.selectedFilter.collectAsState()
+    val statusCounts by viewModel.statusCounts.collectAsState()
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF6F7FB))
-    ) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        AppDecorativeBackground()
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
+                .padding(top = 10.dp)
         ) {
-            // Search bar (no back button)
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color.White)
-                    .padding(horizontal = 20.dp, vertical = 8.dp)
-            ) {
+            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                Text(
+                    text = "库房",
+                    fontSize = 30.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+                Text(
+                    text = "集中查看全部物品、已用完和评价状态。",
+                    fontSize = 13.sp,
+                    color = TextSecondary,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 14.dp)
+                )
                 SearchBar(
                     value = query,
-                    onValueChange = { viewModel.updateQuery(it) },
-                    placeholder = "搜索物品名称、分类、位置…"
+                    onValueChange = viewModel::updateQuery,
+                    placeholder = "搜索物品、分类、位置或备注",
+                    showMagicIconWhenEmpty = false
                 )
             }
 
-            if (query.isBlank()) {
-                // AI search hints
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 24.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.AutoAwesome,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                            tint = OrangeStart
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "试试这样搜",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF1F1F1F)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        searchHints.forEach { hint ->
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(20.dp))
-                                    .background(Color.White)
-                                    .clickable { viewModel.updateQuery(hint) }
-                                    .padding(horizontal = 14.dp, vertical = 8.dp)
-                            ) {
-                                Text(
-                                    text = hint,
-                                    fontSize = 13.sp,
-                                    color = TextSecondary
-                                )
-                            }
-                        }
-                    }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                statusCounts.forEach { item ->
+                    val selected = selectedFilter == item.filter
+                    LibraryFilterChip(
+                        text = item.filter.label,
+                        count = item.count,
+                        selected = selected,
+                        modifier = Modifier.weight(1f),
+                        onClick = { viewModel.selectFilter(item.filter) }
+                    )
                 }
-            } else if (results.isEmpty()) {
+            }
+
+            if (results.isEmpty()) {
                 EmptyState(
-                    message = "没有找到「$query」相关的物品",
-                    modifier = Modifier.padding(top = 100.dp)
+                    title = "没有找到匹配物品",
+                    message = if (query.isBlank()) {
+                        "当前筛选状态下还没有物品。"
+                    } else {
+                        "可以换个关键词，或切换上面的状态筛选。"
+                    },
+                    modifier = Modifier.padding(top = 24.dp)
                 )
             } else {
                 LazyColumn(
-                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp)
+                    contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 132.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     item {
-                        Text(
-                            text = "找到 ${results.size} 个结果",
-                            fontSize = 13.sp,
-                            color = TextSecondary,
-                            modifier = Modifier.padding(bottom = 8.dp)
+                        SectionHeader(
+                            title = selectedFilter.label,
+                            subtitle = "共 ${results.size} 件物品",
+                            modifier = Modifier.padding(bottom = 4.dp)
                         )
                     }
                     items(results, key = { it.item.id }) { itemDetail ->
                         ItemCard(
                             itemDetail = itemDetail,
-                            onClick = { onNavigateToDetail(itemDetail.item.id) },
-                            modifier = Modifier.padding(vertical = 4.dp)
+                            onClick = { onNavigateToDetail(itemDetail.item.id) }
                         )
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun LibraryFilterChip(
+    text: String,
+    count: Int,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val (icon, background, contentColor) = when (text) {
+        LibraryStatusFilter.USED_UP.label -> Triple(Icons.Default.TaskAlt, TagOrange, TagOrangeText)
+        LibraryStatusFilter.PENDING_REVIEW.label -> Triple(Icons.Default.RateReview, TagRed, TagRedText)
+        LibraryStatusFilter.REVIEWED.label -> Triple(Icons.Default.RateReview, TagGreen, TagGreenText)
+        else -> Triple(Icons.Default.Inventory2, Color.White, TextSecondary)
+    }
+
+    AppSurfaceCard(
+        modifier = modifier.clickable(onClick = onClick),
+        shape = RoundedCornerShape(22.dp),
+        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 12.dp),
+        containerColor = if (selected) OrangeStart.copy(alpha = 0.1f) else Color.White,
+        shadowElevation = 8.dp
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (selected) OrangeStart else contentColor
+            )
+            Text(
+                text = text,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = if (selected) OrangeStart else TextPrimary,
+                modifier = Modifier.padding(top = 6.dp)
+            )
+            PillTag(
+                text = "${count}件",
+                backgroundColor = if (selected) OrangeStart else background,
+                contentColor = if (selected) Color.White else contentColor,
+                modifier = Modifier.padding(top = 8.dp)
+            )
         }
     }
 }

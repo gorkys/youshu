@@ -2,21 +2,18 @@ package com.youshu.app.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,10 +27,18 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.youshu.app.data.local.entity.Item
 import com.youshu.app.data.local.entity.ItemDetail
-import com.youshu.app.ui.theme.StatusExpired
+import com.youshu.app.ui.theme.OrangeStart
 import com.youshu.app.ui.theme.StatusNormal
 import com.youshu.app.ui.theme.StatusWarning
+import com.youshu.app.ui.theme.TagGreen
+import com.youshu.app.ui.theme.TagGreenText
+import com.youshu.app.ui.theme.TagOrange
+import com.youshu.app.ui.theme.TagOrangeText
+import com.youshu.app.ui.theme.TagRed
+import com.youshu.app.ui.theme.TagRedText
+import com.youshu.app.ui.theme.TextPrimary
 import com.youshu.app.ui.theme.TextSecondary
 import com.youshu.app.util.DateUtil
 
@@ -45,137 +50,159 @@ fun ItemCard(
 ) {
     val item = itemDetail.item
 
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    AppSurfaceCard(
+        modifier = modifier.clickable(onClick = onClick),
+        shape = RoundedCornerShape(22.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp),
+        shadowElevation = 12.dp
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Image
             if (item.imagePath.isNotEmpty()) {
                 AsyncImage(
                     model = item.imagePath,
                     contentDescription = item.name,
                     modifier = Modifier
-                        .size(64.dp)
-                        .clip(RoundedCornerShape(14.dp)),
+                        .size(62.dp)
+                        .clip(RoundedCornerShape(16.dp)),
                     contentScale = ContentScale.Crop
                 )
             } else {
                 Box(
                     modifier = Modifier
-                        .size(64.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Color(0xFFFFF3E0)),
+                        .size(62.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(OrangeStart.copy(alpha = 0.12f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = item.name.take(1),
+                        color = OrangeStart,
                         fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFFFF8A00)
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.width(14.dp))
+            Spacer(modifier = Modifier.width(12.dp))
 
-            // Info
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = item.name,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (itemDetail.locationName != null) {
+                    Text(
+                        text = item.name,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    itemDetail.categoryName?.let {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        CategoryTag(text = it)
+                    }
+                }
+
+                itemDetail.locationName?.let { location ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             imageVector = Icons.Default.LocationOn,
                             contentDescription = null,
-                            modifier = Modifier.size(14.dp),
+                            modifier = Modifier.size(13.dp),
                             tint = TextSecondary
                         )
-                        Spacer(modifier = Modifier.width(2.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = itemDetail.locationName,
-                            fontSize = 13.sp,
+                            text = location,
+                            fontSize = 12.sp,
                             color = TextSecondary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
-
-                    if (itemDetail.categoryName != null) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        CategoryTag(text = itemDetail.categoryName)
-                    }
                 }
 
-                Spacer(modifier = Modifier.height(2.dp))
-
-                // Quantity info
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
                     Text(
-                        text = "${item.quantity} ${item.unit}",
+                        text = "数量 ${item.quantity}${item.unit}",
                         fontSize = 12.sp,
                         color = TextSecondary
                     )
                     item.price?.let { price ->
-                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "¥%.2f".format(price),
+                            text = DateUtil.formatCurrency(price),
                             fontSize = 12.sp,
                             color = TextSecondary
                         )
                     }
                 }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    when (item.status) {
+                        Item.STATUS_USED_UP -> {
+                            PillTag(
+                                text = "已用完",
+                                backgroundColor = TagOrange,
+                                contentColor = TagOrangeText
+                            )
+                            PillTag(
+                                text = item.rating?.let { "${it}星评价" } ?: "待评价",
+                                backgroundColor = if (item.rating == null) TagRed else TagGreen,
+                                contentColor = if (item.rating == null) TagRedText else TagGreenText
+                            )
+                        }
+
+                        Item.STATUS_DISCARDED -> {
+                            PillTag(
+                                text = "已丢弃",
+                                backgroundColor = TagRed,
+                                contentColor = TagRedText
+                            )
+                        }
+
+                        else -> {
+                            item.expireTime?.let { expireTime ->
+                                val days = DateUtil.daysUntil(expireTime)
+                                val (container, content) = when {
+                                    days < 0 -> TagRed to TagRedText
+                                    days <= 3 -> TagRed to TagRedText
+                                    days <= 7 -> StatusWarning.copy(alpha = 0.12f) to StatusWarning
+                                    else -> StatusNormal.copy(alpha = 0.12f) to StatusNormal
+                                }
+                                PillTag(
+                                    text = DateUtil.expiryCountdownText(expireTime),
+                                    backgroundColor = container,
+                                    contentColor = content
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
-            // Expiry status
-            item.expireTime?.let { expireTime ->
-                val days = DateUtil.daysUntil(expireTime)
-                val (color, text) = when {
-                    days < 0 -> StatusExpired to "已过期"
-                    days <= 3 -> StatusExpired to "${days}天"
-                    days <= 7 -> StatusWarning to "${days}天"
-                    else -> StatusNormal to "${days}天"
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(color.copy(alpha = 0.1f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = text,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = color
-                        )
-                    }
-                    Text(
-                        text = DateUtil.formatDate(expireTime),
-                        fontSize = 9.sp,
-                        color = color
-                    )
-                }
+            Spacer(modifier = Modifier.width(8.dp))
+            Box(
+                modifier = Modifier
+                    .size(30.dp)
+                    .background(Color(0xFFF8F6FC), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = TextSecondary
+                )
             }
         }
     }

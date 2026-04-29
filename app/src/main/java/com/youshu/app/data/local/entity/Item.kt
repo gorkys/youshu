@@ -30,10 +30,12 @@ data class Item(
     val categoryId: Long? = null,
     val locationId: Long? = null,
     val quantity: Int = 1,
-    val unit: String = "个",
+    val unit: String = "件",
     val price: Double? = null,
     val expireTime: Long? = null,
     val status: Int = STATUS_IN_USE,
+    val rating: Int? = null,
+    val ratedAt: Long? = null,
     val note: String = "",
     val imagePath: String = "",
     val createdAt: Long = System.currentTimeMillis()

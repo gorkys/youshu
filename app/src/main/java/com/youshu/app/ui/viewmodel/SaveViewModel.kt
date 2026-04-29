@@ -25,7 +25,7 @@ data class SaveItemState(
     val categoryId: Long? = null,
     val locationId: Long? = null,
     val quantity: Int = 1,
-    val unit: String = "个",
+    val unit: String = "件",
     val price: String = "",
     val expireTime: Long? = null,
     val note: String = "",
@@ -51,12 +51,14 @@ class SaveViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun initFromPhoto(context: Context, imageUri: Uri, aiName: String?, aiCategory: String?) {
+        val current = _state.value
+        if (current.imagePath.isNotEmpty()) return
+
         val savedPath = ImageUtil.saveImageToInternal(context, imageUri)
-        _state.value = _state.value.copy(
+        _state.value = current.copy(
             name = aiName ?: "",
             imagePath = savedPath ?: ""
         )
-        // Try to match AI category
         if (aiCategory != null) {
             viewModelScope.launch {
                 categories.value.find { it.name == aiCategory }?.let {

@@ -1,7 +1,6 @@
 package com.youshu.app.ui.theme
 
 import android.app.Activity
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -17,12 +16,12 @@ private val LightColorScheme = lightColorScheme(
     onPrimary = Color.White,
     primaryContainer = OrangeLight,
     secondary = OrangeEnd,
-    background = Background,
+    background = BackgroundWarm,
     surface = CardWhite,
     onBackground = TextPrimary,
     onSurface = TextPrimary,
-    surfaceVariant = Color(0xFFF0F0F0),
-    outline = Color(0xFFE0E0E0)
+    surfaceVariant = OrangeTint,
+    outline = DividerSoft
 )
 
 private val DarkColorScheme = darkColorScheme(
@@ -40,19 +39,19 @@ private val DarkColorScheme = darkColorScheme(
 
 @Composable
 fun YouShuTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
-
     val view = LocalView.current
+
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
             window.statusBarColor = Color.Transparent.toArgb()
             window.navigationBarColor = Color.Transparent.toArgb()
             WindowCompat.getInsetsController(window, view).apply {
-                isAppearanceLightStatusBars = false
+                isAppearanceLightStatusBars = !darkTheme
                 isAppearanceLightNavigationBars = !darkTheme
             }
         }

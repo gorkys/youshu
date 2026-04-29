@@ -3,6 +3,7 @@ package com.youshu.app.ui.navigation
 sealed class Screen(val route: String) {
     data object Home : Screen("home")
     data object Camera : Screen("camera")
+    data object SearchCenter : Screen("search-center")
     data object Save : Screen("save/{imageUri}") {
         fun createRoute(imageUri: String) = "save/$imageUri"
     }

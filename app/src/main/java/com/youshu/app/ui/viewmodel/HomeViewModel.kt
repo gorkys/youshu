@@ -12,7 +12,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
@@ -24,6 +23,9 @@ class HomeViewModel @Inject constructor(
     private val sevenDaysMs = 7 * 24 * 60 * 60 * 1000L
 
     val activeItems: StateFlow<List<ItemDetail>> = itemRepository.getActiveItems()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allItems: StateFlow<List<ItemDetail>> = itemRepository.getAllItems()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val expiringItems: StateFlow<List<ItemDetail>> = itemRepository
@@ -40,7 +42,22 @@ class HomeViewModel @Inject constructor(
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
+    private val _searchHistory = MutableStateFlow<List<String>>(emptyList())
+    val searchHistory: StateFlow<List<String>> = _searchHistory.asStateFlow()
+
     fun updateSearchQuery(query: String) {
         _searchQuery.value = query
+    }
+
+    fun rememberSearch(query: String) {
+        val normalized = query.trim()
+        if (normalized.isBlank()) return
+        _searchHistory.value = listOf(normalized) +
+            _searchHistory.value.filterNot { it.equals(normalized, ignoreCase = true) }
+                .take(7)
+    }
+
+    fun clearSearchHistory() {
+        _searchHistory.value = emptyList()
     }
 }

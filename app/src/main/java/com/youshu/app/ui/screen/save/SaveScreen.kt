@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -31,18 +30,12 @@ import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -50,7 +43,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import com.youshu.app.util.DateUtil
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
@@ -64,11 +56,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import com.youshu.app.ui.components.AppDialog
+import com.youshu.app.ui.components.AppSurfaceCard
+import com.youshu.app.ui.components.EditorInputBox
+import com.youshu.app.ui.components.EditorSectionLabel
+import com.youshu.app.ui.components.EditorSelectionChip
 import com.youshu.app.ui.components.GradientButton
-import com.youshu.app.ui.theme.OrangeEnd
-import com.youshu.app.ui.theme.OrangeStart
+import com.youshu.app.ui.components.QuantityStepper
+import com.youshu.app.ui.theme.TextHint
+import com.youshu.app.ui.theme.TextPrimary
 import com.youshu.app.ui.theme.TextSecondary
 import com.youshu.app.ui.viewmodel.SaveViewModel
+import com.youshu.app.util.DateUtil
+
+private data class ExpiryQuickOption(val label: String, val timestamp: Long)
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -82,8 +83,20 @@ fun SaveScreen(
     val state by viewModel.state.collectAsState()
     val categories by viewModel.categories.collectAsState()
     val locations by viewModel.locations.collectAsState()
+    val leafLocations = locations.filter { it.parentId != null }
 
-    var showAdvanced by remember { mutableStateOf(false) }
+    var showAdvanced by remember { mutableStateOf(true) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = state.expireTime)
+    val expiryQuickOptions = remember {
+        listOf(
+            ExpiryQuickOption("7天", DateUtil.daysFromNow(7)),
+            ExpiryQuickOption("1个月", DateUtil.monthsFromNow(1)),
+            ExpiryQuickOption("3个月", DateUtil.monthsFromNow(3)),
+            ExpiryQuickOption("6个月", DateUtil.monthsFromNow(6)),
+            ExpiryQuickOption("12个月", DateUtil.monthsFromNow(12))
+        )
+    }
 
     LaunchedEffect(imageUri) {
         viewModel.initFromPhoto(context, imageUri, null, null)
@@ -97,22 +110,27 @@ fun SaveScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Blurred background image
         AsyncImage(
             model = imageUri,
             contentDescription = null,
             modifier = Modifier
                 .fillMaxSize()
-                .blur(20.dp),
+                .blur(28.dp),
             contentScale = ContentScale.Crop,
-            alpha = 0.3f
+            alpha = 0.34f
         )
-
-        // Dark overlay
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.4f))
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Black.copy(alpha = 0.28f),
+                            Color(0xCCFFF9F1),
+                            Color(0xEEFFF9F2)
+                        )
+                    )
+                )
         )
 
         Column(
@@ -121,11 +139,10 @@ fun SaveScreen(
                 .statusBarsPadding()
                 .navigationBarsPadding()
         ) {
-            // Top bar
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(8.dp),
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onBack) {
@@ -136,372 +153,225 @@ fun SaveScreen(
                     )
                 }
                 Spacer(modifier = Modifier.weight(1f))
+                Text(
+                    text = "快速录入",
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.size(48.dp))
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Main card
-            Card(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .padding(horizontal = 16.dp),
-                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
             ) {
-                Column(
+                AppSurfaceCard(
                     modifier = Modifier
                         .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(20.dp)
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    shape = RoundedCornerShape(30.dp)
                 ) {
-                    // Drag handle
-                    Box(
+                    Column(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 12.dp),
-                        contentAlignment = Alignment.Center
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                            .padding(bottom = 96.dp)
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(width = 40.dp, height = 4.dp)
-                                .clip(RoundedCornerShape(2.dp))
-                                .background(Color(0xFFE0E0E0))
+                                .align(Alignment.CenterHorizontally)
+                                .size(width = 42.dp, height = 4.dp)
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(Color(0xFFE5DFEC))
                         )
-                    }
+                        Spacer(modifier = Modifier.height(14.dp))
 
-                    // Image preview
-                    AsyncImage(
-                        model = imageUri,
-                        contentDescription = "预览",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp)
-                            .clip(RoundedCornerShape(16.dp)),
-                        contentScale = ContentScale.Crop
-                    )
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    // Name field with AI tag
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "名称",
-                            fontSize = 13.sp,
-                            color = TextSecondary,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Box(
+                        AsyncImage(
+                            model = imageUri,
+                            contentDescription = "图片预览",
                             modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(OrangeStart.copy(alpha = 0.1f))
-                                .padding(horizontal = 6.dp, vertical = 1.dp)
+                                .fillMaxWidth()
+                                .height(188.dp)
+                                .clip(RoundedCornerShape(24.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+
+                        Spacer(modifier = Modifier.height(18.dp))
+                        EditorSectionLabel(label = "物品名称", tag = "AI识别")
+                        Spacer(modifier = Modifier.height(8.dp))
+                        EditorInputBox(
+                            value = state.name,
+                            onValueChange = viewModel::updateName,
+                            placeholder = "请输入物品名称"
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+                        EditorSectionLabel(label = "分类", tag = "AI推荐")
+                        Spacer(modifier = Modifier.height(8.dp))
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            categories.forEach { category ->
+                                EditorSelectionChip(
+                                    text = category.name,
+                                    selected = state.categoryId == category.id,
+                                    onClick = {
+                                        viewModel.updateCategory(
+                                            if (state.categoryId == category.id) null else category.id
+                                        )
+                                    }
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+                        EditorSectionLabel(label = "存放位置")
+                        Spacer(modifier = Modifier.height(8.dp))
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            leafLocations.forEach { location ->
+                                EditorSelectionChip(
+                                    text = location.name,
+                                    selected = state.locationId == location.id,
+                                    onClick = {
+                                        viewModel.updateLocation(
+                                            if (state.locationId == location.id) null else location.id
+                                        )
+                                    },
+                                    icon = Icons.Default.LocationOn
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showAdvanced = !showAdvanced }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
                         ) {
                             Text(
-                                text = "AI识别",
-                                fontSize = 10.sp,
-                                color = OrangeStart
+                                text = "更多信息（选填）",
+                                fontSize = 14.sp,
+                                color = TextSecondary
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Icon(
+                                imageVector = if (showAdvanced) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                contentDescription = null,
+                                tint = TextSecondary
                             )
                         }
-                    }
-                    Spacer(modifier = Modifier.height(6.dp))
-                    BasicTextField(
-                        value = state.name,
-                        onValueChange = { viewModel.updateName(it) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                Color(0xFFF6F7FB),
-                                RoundedCornerShape(12.dp)
-                            )
-                            .padding(14.dp),
-                        singleLine = true,
-                        textStyle = androidx.compose.ui.text.TextStyle(
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF1F1F1F)
-                        )
-                    )
 
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Category chips
-                    Text(
-                        text = "分类",
-                        fontSize = 13.sp,
-                        color = TextSecondary,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        categories.forEach { category ->
-                            FilterChip(
-                                selected = state.categoryId == category.id,
-                                onClick = {
-                                    viewModel.updateCategory(
-                                        if (state.categoryId == category.id) null else category.id
-                                    )
-                                },
-                                label = { Text(category.name, fontSize = 13.sp) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = OrangeStart.copy(alpha = 0.15f),
-                                    selectedLabelColor = OrangeStart
+                        AnimatedVisibility(
+                            visible = showAdvanced,
+                            enter = expandVertically(),
+                            exit = shrinkVertically()
+                        ) {
+                            Column {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                EditorSectionLabel(label = "数量")
+                                Spacer(modifier = Modifier.height(8.dp))
+                                QuantityStepper(
+                                    quantity = state.quantity,
+                                    unit = state.unit,
+                                    onDecrease = { viewModel.updateQuantity(state.quantity - 1) },
+                                    onIncrease = { viewModel.updateQuantity(state.quantity + 1) }
                                 )
-                            )
-                        }
-                    }
 
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Location
-                    Text(
-                        text = "位置",
-                        fontSize = 13.sp,
-                        color = TextSecondary,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        locations.filter { it.parentId != null }.forEach { location ->
-                            FilterChip(
-                                selected = state.locationId == location.id,
-                                onClick = {
-                                    viewModel.updateLocation(
-                                        if (state.locationId == location.id) null else location.id
-                                    )
-                                },
-                                label = {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                Spacer(modifier = Modifier.height(18.dp))
+                                EditorSectionLabel(label = "有效期")
+                                Spacer(modifier = Modifier.height(8.dp))
+                                EditorInputBox(
+                                    value = state.expireTime?.let(DateUtil::formatDate).orEmpty(),
+                                    onValueChange = {},
+                                    placeholder = "点击选择日期",
+                                    readOnly = true,
+                                    modifier = Modifier.clickable { showDatePicker = true },
+                                    trailingContent = {
                                         Icon(
-                                            imageVector = Icons.Default.LocationOn,
+                                            imageVector = Icons.Default.CalendarToday,
                                             contentDescription = null,
-                                            modifier = Modifier.size(14.dp)
+                                            tint = TextHint,
+                                            modifier = Modifier.size(18.dp)
                                         )
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text(location.name, fontSize = 13.sp)
                                     }
-                                },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = OrangeStart.copy(alpha = 0.15f),
-                                    selectedLabelColor = OrangeStart
                                 )
-                            )
+                                Spacer(modifier = Modifier.height(10.dp))
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    expiryQuickOptions.forEach { option ->
+                                        EditorSelectionChip(
+                                            text = option.label,
+                                            selected = state.expireTime == option.timestamp,
+                                            onClick = { viewModel.updateExpireTime(option.timestamp) }
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(18.dp))
+                                EditorSectionLabel(label = "价格（估算）")
+                                Spacer(modifier = Modifier.height(8.dp))
+                                EditorInputBox(
+                                    value = state.price,
+                                    onValueChange = viewModel::updatePrice,
+                                    placeholder = "例如 8.90"
+                                )
+
+                                Spacer(modifier = Modifier.height(18.dp))
+                                EditorSectionLabel(label = "备注")
+                                Spacer(modifier = Modifier.height(8.dp))
+                                EditorInputBox(
+                                    value = state.note,
+                                    onValueChange = viewModel::updateNote,
+                                    placeholder = "可以补充品牌、规格或使用说明",
+                                    singleLine = false,
+                                    minHeight = 112
+                                )
+                            }
                         }
                     }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Advanced section toggle
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { showAdvanced = !showAdvanced }
-                            .padding(vertical = 8.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "更多信息",
-                            fontSize = 14.sp,
-                            color = TextSecondary
-                        )
-                        Icon(
-                            imageVector = if (showAdvanced) Icons.Default.ExpandLess
-                            else Icons.Default.ExpandMore,
-                            contentDescription = null,
-                            tint = TextSecondary
-                        )
-                    }
-
-                    // Advanced fields
-                    AnimatedVisibility(
-                        visible = showAdvanced,
-                        enter = expandVertically(),
-                        exit = shrinkVertically()
-                    ) {
-                        Column {
-                            // Quantity
-                            Text(
-                                text = "数量",
-                                fontSize = 13.sp,
-                                color = TextSecondary,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(Color(0xFFF6F7FB))
-                                        .clickable {
-                                            viewModel.updateQuantity(state.quantity - 1)
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text("-", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                                }
-                                Text(
-                                    text = "${state.quantity} ${state.unit}",
-                                    modifier = Modifier.padding(horizontal = 16.dp),
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(Color(0xFFF6F7FB))
-                                        .clickable {
-                                            viewModel.updateQuantity(state.quantity + 1)
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text("+", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            // Expiry date
-                            Text(
-                                text = "有效期",
-                                fontSize = 13.sp,
-                                color = TextSecondary,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            val datePickerState = rememberDatePickerState(
-                                initialSelectedDateMillis = state.expireTime
-                            )
-                            var showDatePicker by remember { mutableStateOf(false) }
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(Color(0xFFF6F7FB), RoundedCornerShape(12.dp))
-                                    .clickable { showDatePicker = true }
-                                    .padding(14.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = if (state.expireTime != null)
-                                            DateUtil.formatDate(state.expireTime!!)
-                                        else "点击选择日期",
-                                        fontSize = 15.sp,
-                                        color = if (state.expireTime != null) Color(0xFF1F1F1F) else Color(0xFFBFBFBF)
-                                    )
-                                    Icon(
-                                        imageVector = Icons.Default.CalendarToday,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(20.dp),
-                                        tint = TextSecondary
-                                    )
-                                }
-                            }
-
-                            if (showDatePicker) {
-                                DatePickerDialog(
-                                    onDismissRequest = { showDatePicker = false },
-                                    confirmButton = {
-                                        TextButton(onClick = {
-                                            datePickerState.selectedDateMillis?.let {
-                                                viewModel.updateExpireTime(it)
-                                            }
-                                            showDatePicker = false
-                                        }) {
-                                            Text("确定")
-                                        }
-                                    },
-                                    dismissButton = {
-                                        TextButton(onClick = { showDatePicker = false }) {
-                                            Text("取消")
-                                        }
-                                    }
-                                ) {
-                                    DatePicker(state = datePickerState)
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            // Price
-                            Text(
-                                text = "价格",
-                                fontSize = 13.sp,
-                                color = TextSecondary,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            BasicTextField(
-                                value = state.price,
-                                onValueChange = { viewModel.updatePrice(it) },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(
-                                        Color(0xFFF6F7FB),
-                                        RoundedCornerShape(12.dp)
-                                    )
-                                    .padding(14.dp),
-                                singleLine = true,
-                                textStyle = androidx.compose.ui.text.TextStyle(
-                                    fontSize = 15.sp,
-                                    color = Color(0xFF1F1F1F)
-                                )
-                            )
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            // Note
-                            Text(
-                                text = "备注",
-                                fontSize = 13.sp,
-                                color = TextSecondary,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            BasicTextField(
-                                value = state.note,
-                                onValueChange = { viewModel.updateNote(it) },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(80.dp)
-                                    .background(
-                                        Color(0xFFF6F7FB),
-                                        RoundedCornerShape(12.dp)
-                                    )
-                                    .padding(14.dp),
-                                textStyle = androidx.compose.ui.text.TextStyle(
-                                    fontSize = 15.sp,
-                                    color = Color(0xFF1F1F1F)
-                                )
-                            )
-
-                            Spacer(modifier = Modifier.height(16.dp))
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Save button
-                    GradientButton(
-                        text = if (state.isSaving) "保存中…" else "保存",
-                        onClick = { viewModel.save() },
-                        enabled = state.name.isNotBlank() && !state.isSaving
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
                 }
+
+                GradientButton(
+                    text = if (state.isSaving) "保存中…" else "保存",
+                    onClick = viewModel::save,
+                    enabled = state.name.isNotBlank() && !state.isSaving,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(horizontal = 28.dp, vertical = 18.dp)
+                )
+            }
+        }
+
+        if (showDatePicker) {
+            AppDialog(
+                title = "选择有效期",
+                subtitle = "可以切换月份快速定位，也可以使用上面的快捷按钮。",
+                onDismissRequest = { showDatePicker = false },
+                confirmText = "确定",
+                secondaryText = "清空",
+                onSecondary = {
+                    viewModel.updateExpireTime(null)
+                    showDatePicker = false
+                },
+                onConfirm = {
+                    viewModel.updateExpireTime(datePickerState.selectedDateMillis)
+                    showDatePicker = false
+                }
+            ) {
+                DatePicker(state = datePickerState)
             }
         }
     }

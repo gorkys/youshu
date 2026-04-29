@@ -23,11 +23,14 @@ data class EditItemState(
     val categoryId: Long? = null,
     val locationId: Long? = null,
     val quantity: Int = 1,
-    val unit: String = "个",
+    val unit: String = "件",
     val price: String = "",
     val expireTime: Long? = null,
     val note: String = "",
     val imagePath: String = "",
+    val rating: Int? = null,
+    val ratedAt: Long? = null,
+    val status: Int = Item.STATUS_IN_USE,
     val isSaving: Boolean = false,
     val isSaved: Boolean = false,
     val isLoaded: Boolean = false
@@ -50,7 +53,7 @@ class EditViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun loadItem(itemId: Long) {
-        if (_state.value.isLoaded) return
+        if (_state.value.isLoaded && _state.value.itemId == itemId) return
         viewModelScope.launch {
             val item = itemRepository.getItemById(itemId) ?: return@launch
             _state.value = EditItemState(
@@ -64,6 +67,9 @@ class EditViewModel @Inject constructor(
                 expireTime = item.expireTime,
                 note = item.note,
                 imagePath = item.imagePath,
+                rating = item.rating,
+                ratedAt = item.ratedAt,
+                status = item.status,
                 isLoaded = true
             )
         }
@@ -103,6 +109,7 @@ class EditViewModel @Inject constructor(
 
         _state.value = current.copy(isSaving = true)
         viewModelScope.launch {
+            val original = itemRepository.getItemById(current.itemId)
             val item = Item(
                 id = current.itemId,
                 name = current.name,
@@ -112,8 +119,12 @@ class EditViewModel @Inject constructor(
                 unit = current.unit,
                 price = current.price.toDoubleOrNull(),
                 expireTime = current.expireTime,
+                status = current.status,
+                rating = current.rating,
+                ratedAt = current.ratedAt,
                 note = current.note,
-                imagePath = current.imagePath
+                imagePath = current.imagePath,
+                createdAt = original?.createdAt ?: System.currentTimeMillis()
             )
             itemRepository.update(item)
             _state.value = _state.value.copy(isSaving = false, isSaved = true)

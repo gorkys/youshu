@@ -36,7 +36,13 @@ class ItemRepository @Inject constructor(
 
     suspend fun delete(item: Item) = itemDao.delete(item)
 
-    suspend fun markAsUsed(id: Long) = itemDao.updateStatus(id, Item.STATUS_USED_UP)
+    suspend fun markAsUsed(id: Long, rating: Int? = null) {
+        val ratedAt = rating?.let { System.currentTimeMillis() }
+        itemDao.updateStatusAndRating(id, Item.STATUS_USED_UP, rating, ratedAt)
+    }
+
+    suspend fun rateUsedItem(id: Long, rating: Int) =
+        itemDao.updateRating(id, rating, System.currentTimeMillis())
 
     suspend fun markAsDiscarded(id: Long) = itemDao.updateStatus(id, Item.STATUS_DISCARDED)
 
