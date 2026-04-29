@@ -25,8 +25,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -119,16 +119,29 @@ fun CameraScreen(
                 modifier = Modifier.fillMaxSize()
             )
 
-            // Bottom controls
-            Column(
+            // Bottom controls: gallery on left, capture in center
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter)
                     .navigationBarsPadding()
                     .padding(bottom = 32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // Capture button
+                // Gallery button (left of capture)
+                IconButton(onClick = { galleryLauncher.launch("image/*") }) {
+                    Icon(
+                        imageVector = Icons.Default.PhotoLibrary,
+                        contentDescription = "相册",
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(32.dp))
+
+                // Capture button (center)
                 Box(
                     modifier = Modifier
                         .size(72.dp)
@@ -150,21 +163,10 @@ fun CameraScreen(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.width(32.dp))
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    IconButton(onClick = { galleryLauncher.launch("image/*") }) {
-                        Icon(
-                            imageVector = Icons.Default.PhotoLibrary,
-                            contentDescription = "相册",
-                            tint = Color.White,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-                }
+                // Placeholder to balance the layout
+                Spacer(modifier = Modifier.size(28.dp))
             }
 
             // Back button
@@ -172,7 +174,7 @@ fun CameraScreen(
                 onClick = onBack,
                 modifier = Modifier
                     .padding(16.dp)
-                    .statusBarsPadding()
+                    .align(Alignment.TopStart)
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,

@@ -1,6 +1,7 @@
 package com.youshu.app.ui.navigation
 
 import android.net.Uri
+import android.os.Build
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -47,7 +48,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -177,7 +177,6 @@ fun AppNavGraph() {
 
             composable(Screen.Search.route) {
                 SearchScreen(
-                    onBack = { navController.popBackStack() },
                     onNavigateToDetail = { id ->
                         navController.navigate(Screen.Detail.createRoute(id))
                     }
@@ -230,9 +229,22 @@ private fun YouShuBottomBar(
     Box(
         modifier = Modifier.fillMaxWidth()
     ) {
-        // Frosted glass navigation bar
+        // Frosted glass effect: blurred white background behind the nav bar
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .background(Color.White.copy(alpha = 0.65f))
+                    .windowInsetsPadding(WindowInsets.navigationBars)
+            )
+        }
+
         NavigationBar(
-            containerColor = Color.White.copy(alpha = 0.85f),
+            containerColor = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+                Color.Transparent
+            else
+                Color.White.copy(alpha = 0.92f),
             tonalElevation = 0.dp,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -240,7 +252,6 @@ private fun YouShuBottomBar(
         ) {
             bottomNavItems.forEachIndexed { index, item ->
                 if (index == 2) {
-                    // Empty space for center camera button
                     NavigationBarItem(
                         selected = false,
                         onClick = { },

@@ -21,10 +21,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -54,7 +52,6 @@ private val searchHints = listOf(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SearchScreen(
-    onBack: () -> Unit,
     onNavigateToDetail: (Long) -> Unit,
     viewModel: SearchViewModel = hiltViewModel()
 ) {
@@ -71,27 +68,17 @@ fun SearchScreen(
                 .fillMaxSize()
                 .statusBarsPadding()
         ) {
-            // Search bar
+            // Search bar (no back button)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(Color.White)
-                    .padding(horizontal = 8.dp, vertical = 8.dp)
+                    .padding(horizontal = 20.dp, vertical = 8.dp)
             ) {
-                IconButton(
-                    onClick = onBack,
-                    modifier = Modifier.align(Alignment.CenterStart)
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "返回"
-                    )
-                }
                 SearchBar(
                     value = query,
                     onValueChange = { viewModel.updateQuery(it) },
-                    placeholder = "搜索物品名称、分类、位置…",
-                    modifier = Modifier.padding(start = 48.dp)
+                    placeholder = "搜索物品名称、分类、位置…"
                 )
             }
 
