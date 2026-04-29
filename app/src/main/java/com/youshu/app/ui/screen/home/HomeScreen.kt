@@ -55,6 +55,7 @@ fun HomeScreen(
     onNavigateToCamera: () -> Unit,
     onNavigateToDetail: (Long) -> Unit,
     onNavigateToSearch: () -> Unit,
+    onNavigateToExpiry: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val activeItems by viewModel.activeItems.collectAsState()
@@ -158,7 +159,9 @@ fun HomeScreen(
 
                     // Expiring items card
                     Card(
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { onNavigateToExpiry() },
                         shape = RoundedCornerShape(20.dp),
                         colors = CardDefaults.cardColors(containerColor = Color.White),
                         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)

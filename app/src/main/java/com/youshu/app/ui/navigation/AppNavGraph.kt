@@ -57,6 +57,7 @@ import androidx.navigation.navArgument
 import com.youshu.app.ui.screen.camera.CameraScreen
 import com.youshu.app.ui.screen.category.CategoryScreen
 import com.youshu.app.ui.screen.detail.DetailScreen
+import com.youshu.app.ui.screen.expiry.ExpiryScreen
 import com.youshu.app.ui.screen.home.HomeScreen
 import com.youshu.app.ui.screen.save.SaveScreen
 import com.youshu.app.ui.screen.search.SearchScreen
@@ -126,7 +127,8 @@ fun AppNavGraph() {
                     onNavigateToDetail = { id ->
                         navController.navigate(Screen.Detail.createRoute(id))
                     },
-                    onNavigateToSearch = { navController.navigate(Screen.Search.route) }
+                    onNavigateToSearch = { navController.navigate(Screen.Search.route) },
+                    onNavigateToExpiry = { navController.navigate(Screen.Expiry.route) }
                 )
             }
 
@@ -182,6 +184,15 @@ fun AppNavGraph() {
 
             composable(Screen.Category.route) {
                 CategoryScreen(
+                    onNavigateToDetail = { id ->
+                        navController.navigate(Screen.Detail.createRoute(id))
+                    }
+                )
+            }
+
+            composable(Screen.Expiry.route) {
+                ExpiryScreen(
+                    onBack = { navController.popBackStack() },
                     onNavigateToDetail = { id ->
                         navController.navigate(Screen.Detail.createRoute(id))
                     }
