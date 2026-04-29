@@ -33,12 +33,16 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -46,6 +50,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.youshu.app.util.DateUtil
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
@@ -360,6 +365,71 @@ fun SaveScreen(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text("+", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // Expiry date
+                            Text(
+                                text = "有效期",
+                                fontSize = 13.sp,
+                                color = TextSecondary,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            val datePickerState = rememberDatePickerState(
+                                initialSelectedDateMillis = state.expireTime
+                            )
+                            var showDatePicker by remember { mutableStateOf(false) }
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(Color(0xFFF6F7FB), RoundedCornerShape(12.dp))
+                                    .clickable { showDatePicker = true }
+                                    .padding(14.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = if (state.expireTime != null)
+                                            DateUtil.formatDate(state.expireTime!!)
+                                        else "点击选择日期",
+                                        fontSize = 15.sp,
+                                        color = if (state.expireTime != null) Color(0xFF1F1F1F) else Color(0xFFBFBFBF)
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Default.CalendarToday,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp),
+                                        tint = TextSecondary
+                                    )
+                                }
+                            }
+
+                            if (showDatePicker) {
+                                DatePickerDialog(
+                                    onDismissRequest = { showDatePicker = false },
+                                    confirmButton = {
+                                        TextButton(onClick = {
+                                            datePickerState.selectedDateMillis?.let {
+                                                viewModel.updateExpireTime(it)
+                                            }
+                                            showDatePicker = false
+                                        }) {
+                                            Text("确定")
+                                        }
+                                    },
+                                    dismissButton = {
+                                        TextButton(onClick = { showDatePicker = false }) {
+                                            Text("取消")
+                                        }
+                                    }
+                                ) {
+                                    DatePicker(state = datePickerState)
                                 }
                             }
 

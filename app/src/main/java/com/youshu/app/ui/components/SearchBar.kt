@@ -26,7 +26,7 @@ import androidx.compose.ui.unit.sp
 fun SearchBar(
     value: String,
     onValueChange: (String) -> Unit,
-    placeholder: String = "搜索物品、位置…",
+    placeholder: String = "搜索物品、位置或说些什么...",
     modifier: Modifier = Modifier
 ) {
     Box(

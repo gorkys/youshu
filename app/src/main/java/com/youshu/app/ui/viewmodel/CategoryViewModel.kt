@@ -10,6 +10,7 @@ import com.youshu.app.data.repository.ItemRepository
 import com.youshu.app.data.repository.LocationRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -74,4 +75,7 @@ class CategoryViewModel @Inject constructor(
             locationRepository.insert(Location(name = name, parentId = parentId))
         }
     }
+
+    fun getSubLocations(parentId: Long): Flow<List<Location>> =
+        locationRepository.getSubLocations(parentId)
 }

@@ -18,11 +18,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Help
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Inventory2
-import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Recycling
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -38,6 +40,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -53,9 +56,8 @@ fun ProfileScreen(
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
     val totalCount by viewModel.totalCount.collectAsState()
-    val activeCount by viewModel.activeCount.collectAsState()
-    val usedUpCount by viewModel.usedUpCount.collectAsState()
     val expiringCount by viewModel.expiringCount.collectAsState()
+    val totalValue by viewModel.totalValue.collectAsState()
 
     Box(
         modifier = Modifier
@@ -68,7 +70,7 @@ fun ProfileScreen(
                 .statusBarsPadding()
                 .verticalScroll(rememberScrollState())
         ) {
-            // Header with gradient
+            // User info card with gradient
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -110,7 +112,7 @@ fun ProfileScreen(
                 }
             }
 
-            // Stats card
+            // Stats panel: 3 metrics
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -119,26 +121,19 @@ fun ProfileScreen(
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text(
-                        text = "数据统计",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        StatItem("全部", totalCount, Color(0xFF1F1F1F))
-                        StatItem("在用", activeCount, StatusNormal)
-                        StatItem("已用完", usedUpCount, TextSecondary)
-                        StatItem("即将过期", expiringCount, StatusExpired)
-                    }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    StatItem("物品总数", "$totalCount", Color(0xFF1F1F1F))
+                    StatItem("即将过期", "$expiringCount", StatusExpired)
+                    StatItem("总价值", "¥%.0f".format(totalValue), OrangeStart)
                 }
             }
 
-            // Settings section
+            // Function list
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -158,23 +153,22 @@ fun ProfileScreen(
                         color = Color(0xFFF0F0F0)
                     )
                     SettingsItem(
-                        icon = Icons.Default.LocationOn,
-                        title = "位置管理",
-                        subtitle = "管理物品存放位置"
+                        icon = Icons.Default.Recycling,
+                        title = "回收站",
+                        subtitle = "已删除的物品"
                     )
                     HorizontalDivider(
                         modifier = Modifier.padding(horizontal = 20.dp),
                         color = Color(0xFFF0F0F0)
                     )
                     SettingsItem(
-                        icon = Icons.Default.Inventory2,
-                        title = "分类管理",
-                        subtitle = "管理物品分类标签"
+                        icon = Icons.Default.Settings,
+                        title = "设置",
+                        subtitle = "应用设置"
                     )
                 }
             }
 
-            // About section
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -185,26 +179,24 @@ fun ProfileScreen(
             ) {
                 Column {
                     SettingsItem(
-                        icon = Icons.Default.Info,
-                        title = "关于有数",
-                        subtitle = "版本 1.0.0"
+                        icon = Icons.Default.Help,
+                        title = "帮助与反馈",
+                        subtitle = "使用帮助和意见反馈"
                     )
                     HorizontalDivider(
                         modifier = Modifier.padding(horizontal = 20.dp),
                         color = Color(0xFFF0F0F0)
                     )
                     SettingsItem(
-                        icon = Icons.Default.Delete,
-                        title = "清除数据",
-                        subtitle = "清除所有物品数据",
-                        isDestructive = true
+                        icon = Icons.Default.Info,
+                        title = "关于我们",
+                        subtitle = "版本 1.0.0"
                     )
                 }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Footer
             Text(
                 text = "心中有数，遇事不怵",
                 fontSize = 12.sp,
@@ -212,18 +204,18 @@ fun ProfileScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 16.dp),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                textAlign = TextAlign.Center
             )
         }
     }
 }
 
 @Composable
-private fun StatItem(label: String, count: Int, color: Color) {
+private fun StatItem(label: String, value: String, color: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
-            text = "$count",
-            fontSize = 24.sp,
+            text = value,
+            fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
             color = color
         )
@@ -240,8 +232,7 @@ private fun StatItem(label: String, count: Int, color: Color) {
 private fun SettingsItem(
     icon: ImageVector,
     title: String,
-    subtitle: String,
-    isDestructive: Boolean = false
+    subtitle: String
 ) {
     Row(
         modifier = Modifier
@@ -253,7 +244,7 @@ private fun SettingsItem(
             imageVector = icon,
             contentDescription = null,
             modifier = Modifier.size(22.dp),
-            tint = if (isDestructive) StatusExpired else OrangeStart
+            tint = OrangeStart
         )
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
@@ -261,7 +252,7 @@ private fun SettingsItem(
                 text = title,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Medium,
-                color = if (isDestructive) StatusExpired else Color(0xFF1F1F1F)
+                color = Color(0xFF1F1F1F)
             )
             Text(
                 text = subtitle,
@@ -269,5 +260,11 @@ private fun SettingsItem(
                 color = TextSecondary
             )
         }
+        Icon(
+            imageVector = Icons.Default.ChevronRight,
+            contentDescription = null,
+            modifier = Modifier.size(20.dp),
+            tint = Color(0xFFD0D0D0)
+        )
     }
 }

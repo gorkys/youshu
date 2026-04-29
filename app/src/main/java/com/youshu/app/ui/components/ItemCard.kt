@@ -155,17 +155,24 @@ fun ItemCard(
                 }
 
                 Spacer(modifier = Modifier.width(8.dp))
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(color.copy(alpha = 0.1f)),
-                    contentAlignment = Alignment.Center
-                ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(color.copy(alpha = 0.1f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = text,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = color
+                        )
+                    }
                     Text(
-                        text = text,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium,
+                        text = DateUtil.formatDate(expireTime),
+                        fontSize = 9.sp,
                         color = color
                     )
                 }

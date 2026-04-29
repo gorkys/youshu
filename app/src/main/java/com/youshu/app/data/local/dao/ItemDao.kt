@@ -144,4 +144,29 @@ interface ItemDao {
 
     @Query("SELECT COUNT(*) FROM items WHERE status = 1")
     fun getUsedUpCount(): Flow<Int>
+
+    @Query("SELECT COALESCE(SUM(price * quantity), 0.0) FROM items WHERE status = 0")
+    fun getTotalValue(): Flow<Double>
+
+    @Query("SELECT COUNT(*) FROM items WHERE status = 0 AND categoryId = :categoryId")
+    fun getCountByCategory(categoryId: Long): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM items WHERE status = 0 AND locationId = :locationId")
+    fun getCountByLocation(locationId: Long): Flow<Int>
+
+    @Query("""
+        SELECT items.*,
+               categories.name AS categoryName,
+               locations.name AS locationName
+        FROM items
+        LEFT JOIN categories ON items.categoryId = categories.id
+        LEFT JOIN locations ON items.locationId = locations.id
+        WHERE items.status = 0
+          AND items.expireTime IS NOT NULL
+          AND items.expireTime <= :thresholdTime
+          AND items.expireTime > 0
+          AND items.expireTime > :currentTime
+        ORDER BY items.expireTime ASC
+    """)
+    fun getExpiringItemsInRange(currentTime: Long, thresholdTime: Long): Flow<List<ItemDetail>>
 }

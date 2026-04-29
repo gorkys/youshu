@@ -43,4 +43,13 @@ class ItemRepository @Inject constructor(
     fun getActiveCount(): Flow<Int> = itemDao.getActiveCount()
 
     fun getExpiringCount(thresholdTime: Long): Flow<Int> = itemDao.getExpiringCount(thresholdTime)
+
+    fun getTotalValue(): Flow<Double> = itemDao.getTotalValue()
+
+    fun getCountByCategory(categoryId: Long): Flow<Int> = itemDao.getCountByCategory(categoryId)
+
+    fun getCountByLocation(locationId: Long): Flow<Int> = itemDao.getCountByLocation(locationId)
+
+    fun getExpiringItemsInRange(currentTime: Long, thresholdTime: Long): Flow<List<ItemDetail>> =
+        itemDao.getExpiringItemsInRange(currentTime, thresholdTime)
 }

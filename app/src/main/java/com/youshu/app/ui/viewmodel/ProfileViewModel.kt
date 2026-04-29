@@ -28,4 +28,7 @@ class ProfileViewModel @Inject constructor(
     val expiringCount: StateFlow<Int> = itemDao
         .getExpiringCount(System.currentTimeMillis() + sevenDaysMs)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    val totalValue: StateFlow<Double> = itemDao.getTotalValue()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
 }

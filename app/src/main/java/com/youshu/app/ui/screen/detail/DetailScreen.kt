@@ -251,12 +251,14 @@ fun DetailScreen(
                         DetailRow(label = "备注", value = item.note)
                     }
 
+                    DetailRow(label = "添加时间", value = DateUtil.formatDateTime(item.createdAt))
+
                     Spacer(modifier = Modifier.height(24.dp))
 
                     // Action buttons
                     if (item.status == Item.STATUS_IN_USE) {
-                        GradientButton(
-                            text = "标记已用完",
+                        GreenButton(
+                            text = "已用完",
                             onClick = { viewModel.markAsUsed(item.id) }
                         )
                         Spacer(modifier = Modifier.height(12.dp))
@@ -338,6 +340,30 @@ private fun DetailRow(
 }
 
 @Composable
+private fun GreenButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(52.dp)
+            .clip(RoundedCornerShape(24.dp))
+            .background(StatusNormal)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            color = Color.White,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+}
+
+@Composable
 private fun OutlinedActionButton(
     text: String,
     icon: ImageVector,
@@ -346,13 +372,14 @@ private fun OutlinedActionButton(
     isDestructive: Boolean = false
 ) {
     val color = if (isDestructive) StatusExpired else TextSecondary
+    val borderColor = if (isDestructive) StatusExpired.copy(alpha = 0.5f) else Color(0xFFE8E8E8)
 
     Box(
         modifier = modifier
             .height(44.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(Color.White)
-            .border(1.dp, Color(0xFFE8E8E8), RoundedCornerShape(12.dp))
+            .border(1.dp, borderColor, RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp),
         contentAlignment = Alignment.Center

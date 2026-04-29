@@ -8,9 +8,14 @@ import java.util.concurrent.TimeUnit
 object DateUtil {
 
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+    private val dateTimeFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
 
     fun formatDate(timestamp: Long): String {
         return dateFormat.format(Date(timestamp))
+    }
+
+    fun formatDateTime(timestamp: Long): String {
+        return dateTimeFormat.format(Date(timestamp))
     }
 
     fun daysUntil(timestamp: Long): Long {
