@@ -1,0 +1,264 @@
+package com.youshu.app.ui.navigation
+
+import android.net.Uri
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.Category
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.navigation.NavHostController
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.youshu.app.ui.screen.camera.CameraScreen
+import com.youshu.app.ui.screen.category.CategoryScreen
+import com.youshu.app.ui.screen.detail.DetailScreen
+import com.youshu.app.ui.screen.home.HomeScreen
+import com.youshu.app.ui.screen.save.SaveScreen
+import com.youshu.app.ui.screen.search.SearchScreen
+import com.youshu.app.ui.theme.OrangeEnd
+import com.youshu.app.ui.theme.OrangeStart
+
+private data class BottomNavItem(
+    val route: String,
+    val label: String,
+    val selectedIcon: ImageVector,
+    val unselectedIcon: ImageVector
+)
+
+private val bottomNavItems = listOf(
+    BottomNavItem(Screen.Home.route, "首页", Icons.Filled.Home, Icons.Outlined.Home),
+    BottomNavItem(Screen.Category.route, "分类", Icons.Filled.Category, Icons.Outlined.Category),
+    BottomNavItem(Screen.Camera.route, "拍照", Icons.Filled.CameraAlt, Icons.Filled.CameraAlt),
+    BottomNavItem(Screen.Search.route, "搜索", Icons.Filled.Search, Icons.Outlined.Search),
+    BottomNavItem(Screen.Profile.route, "我的", Icons.Filled.Person, Icons.Outlined.Person)
+)
+
+@Composable
+fun AppNavGraph() {
+    val navController = rememberNavController()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+
+    val showBottomBar = currentRoute in listOf(
+        Screen.Home.route,
+        Screen.Category.route,
+        Screen.Search.route,
+        Screen.Profile.route
+    )
+
+    Scaffold(
+        bottomBar = {
+            AnimatedVisibility(
+                visible = showBottomBar,
+                enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
+            ) {
+                YouShuBottomBar(
+                    currentRoute = currentRoute,
+                    onNavigate = { route ->
+                        if (route == Screen.Camera.route) {
+                            navController.navigate(Screen.Camera.route)
+                        } else {
+                            navController.navigate(route) {
+                                popUpTo(Screen.Home.route) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+                    }
+                )
+            }
+        }
+    ) { innerPadding ->
+        NavHost(
+            navController = navController,
+            startDestination = Screen.Home.route,
+            modifier = Modifier.padding(innerPadding)
+        ) {
+            composable(Screen.Home.route) {
+                HomeScreen(
+                    onNavigateToCamera = { navController.navigate(Screen.Camera.route) },
+                    onNavigateToDetail = { id ->
+                        navController.navigate(Screen.Detail.createRoute(id))
+                    },
+                    onNavigateToSearch = { navController.navigate(Screen.Search.route) }
+                )
+            }
+
+            composable(Screen.Camera.route) {
+                CameraScreen(
+                    onBack = { navController.popBackStack() },
+                    onPhotoTaken = { uri ->
+                        val encoded = Uri.encode(uri.toString())
+                        navController.navigate(Screen.Save.createRoute(encoded)) {
+                            popUpTo(Screen.Camera.route) { inclusive = true }
+                        }
+                    }
+                )
+            }
+
+            composable(
+                route = Screen.Save.route,
+                arguments = listOf(navArgument("imageUri") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val encodedUri = backStackEntry.arguments?.getString("imageUri") ?: return@composable
+                val uri = Uri.parse(Uri.decode(encodedUri))
+                SaveScreen(
+                    imageUri = uri,
+                    onBack = { navController.popBackStack() },
+                    onSaved = {
+                        navController.navigate(Screen.Home.route) {
+                            popUpTo(Screen.Home.route) { inclusive = true }
+                        }
+                    }
+                )
+            }
+
+            composable(
+                route = Screen.Detail.route,
+                arguments = listOf(navArgument("itemId") { type = NavType.LongType })
+            ) { backStackEntry ->
+                val itemId = backStackEntry.arguments?.getLong("itemId") ?: return@composable
+                DetailScreen(
+                    itemId = itemId,
+                    onBack = { navController.popBackStack() },
+                    onEdit = { /* TODO: implement edit */ }
+                )
+            }
+
+            composable(Screen.Search.route) {
+                SearchScreen(
+                    onBack = { navController.popBackStack() },
+                    onNavigateToDetail = { id ->
+                        navController.navigate(Screen.Detail.createRoute(id))
+                    }
+                )
+            }
+
+            composable(Screen.Category.route) {
+                CategoryScreen(
+                    onNavigateToDetail = { id ->
+                        navController.navigate(Screen.Detail.createRoute(id))
+                    }
+                )
+            }
+
+            composable(Screen.Profile.route) {
+                // Placeholder for profile screen
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("我的", fontSize = 22.sp, color = Color.Gray)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun YouShuBottomBar(
+    currentRoute: String?,
+    onNavigate: (String) -> Unit
+) {
+    Box {
+        NavigationBar(
+            containerColor = Color.White,
+            tonalElevation = 8.dp
+        ) {
+            bottomNavItems.forEachIndexed { index, item ->
+                if (index == 2) {
+                    // Spacer for center camera button
+                    NavigationBarItem(
+                        selected = false,
+                        onClick = { },
+                        icon = { Box(modifier = Modifier.size(24.dp)) },
+                        label = { Text("", fontSize = 10.sp) },
+                        enabled = false
+                    )
+                } else {
+                    val isSelected = currentRoute == item.route
+                    NavigationBarItem(
+                        selected = isSelected,
+                        onClick = { onNavigate(item.route) },
+                        icon = {
+                            Icon(
+                                imageVector = if (isSelected) item.selectedIcon else item.unselectedIcon,
+                                contentDescription = item.label,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        },
+                        label = { Text(item.label, fontSize = 10.sp) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = OrangeStart,
+                            selectedTextColor = OrangeStart,
+                            indicatorColor = OrangeStart.copy(alpha = 0.1f)
+                        )
+                    )
+                }
+            }
+        }
+
+        // Center camera button (floating)
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 4.dp)
+                .size(52.dp)
+                .shadow(8.dp, CircleShape)
+                .clip(CircleShape)
+                .background(
+                    brush = Brush.linearGradient(
+                        colors = listOf(OrangeStart, OrangeEnd)
+                    )
+                )
+                .clickable { onNavigate(Screen.Camera.route) },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.CameraAlt,
+                contentDescription = "拍照",
+                tint = Color.White,
+                modifier = Modifier.size(26.dp)
+            )
+        }
+    }
+}
