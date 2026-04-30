@@ -4,17 +4,17 @@
   <img src="./logo.png" alt="有数 Banner" width="35%" />
 </p>
 
-
 <p align="center">
   <a href="#"><img src="https://img.shields.io/badge/platform-Android-3DDC84?logo=android&logoColor=white" alt="Android" /></a>
   <a href="#"><img src="https://img.shields.io/badge/Kotlin-2.1.0-7F52FF?logo=kotlin&logoColor=white" alt="Kotlin" /></a>
   <a href="#"><img src="https://img.shields.io/badge/Jetpack%20Compose-Material%203-4285F4?logo=jetpackcompose&logoColor=white" alt="Jetpack Compose" /></a>
   <a href="#"><img src="https://img.shields.io/badge/minSdk-26-FF8A00" alt="minSdk 26" /></a>
   <a href="#"><img src="https://img.shields.io/badge/build-local%20debug-passing-success" alt="Local Debug Build Passing" /></a>
-  <a href="#"><img src="https://img.shields.io/badge/license-Not%20specified-lightgrey" alt="License Not Specified" /></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-22c55e" alt="License MIT" /></a>
 </p>
 
-> 心中有数，遇事不忙。
+
+> 心中有数，遇事不怵。
 
 有数是一个面向家庭物品管理的 Android App，用来记录家中物品的位置、数量、有效期与状态，降低遗忘和浪费成本。项目重点围绕「拍照快速录入」「到期提醒」「分类与库房管理」「自然语言搜索入口」展开，并采用沉浸式页面与毛玻璃悬浮导航作为核心视觉语言。
 
@@ -245,4 +245,4 @@ chore: ...
 
 ## License
 
-[MIT](https://github.com/openilink/openilink-hub/blob/main/LICENSE) — 随便用，不限商用。
+[MIT](./LICENSE)
