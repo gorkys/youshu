@@ -15,6 +15,8 @@ class ItemRepository @Inject constructor(
 
     fun getAllItems(): Flow<List<ItemDetail>> = itemDao.getAllItems()
 
+    fun getRecycleItems(cutoffTime: Long): Flow<List<ItemDetail>> = itemDao.getRecycleItems(cutoffTime)
+
     fun getItemDetailById(id: Long): Flow<ItemDetail?> = itemDao.getItemDetailById(id)
 
     fun getExpiringItems(thresholdTime: Long): Flow<List<ItemDetail>> =
@@ -36,6 +38,13 @@ class ItemRepository @Inject constructor(
 
     suspend fun delete(item: Item) = itemDao.delete(item)
 
+    suspend fun moveToTrash(item: Item) = itemDao.moveToTrash(
+        id = item.id,
+        deletedAt = System.currentTimeMillis()
+    )
+
+    suspend fun restoreFromTrash(id: Long) = itemDao.restoreFromTrash(id)
+
     suspend fun markAsUsed(id: Long, rating: Int? = null) {
         val ratedAt = rating?.let { System.currentTimeMillis() }
         itemDao.updateStatusAndRating(id, Item.STATUS_USED_UP, rating, ratedAt)
@@ -52,10 +61,20 @@ class ItemRepository @Inject constructor(
 
     fun getTotalValue(): Flow<Double> = itemDao.getTotalValue()
 
+    fun getRecycleCount(cutoffTime: Long): Flow<Int> = itemDao.getRecycleCount(cutoffTime)
+
     fun getCountByCategory(categoryId: Long): Flow<Int> = itemDao.getCountByCategory(categoryId)
 
     fun getCountByLocation(locationId: Long): Flow<Int> = itemDao.getCountByLocation(locationId)
 
     fun getExpiringItemsInRange(currentTime: Long, thresholdTime: Long): Flow<List<ItemDetail>> =
         itemDao.getExpiringItemsInRange(currentTime, thresholdTime)
+
+    suspend fun purgeDeletedItemsOlderThan(cutoffTime: Long): List<Item> {
+        val expiredItems = itemDao.getDeletedItemsBefore(cutoffTime)
+        if (expiredItems.isNotEmpty()) {
+            itemDao.purgeDeletedBefore(cutoffTime)
+        }
+        return expiredItems
+    }
 }

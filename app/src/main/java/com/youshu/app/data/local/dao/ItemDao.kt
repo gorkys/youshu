@@ -22,6 +22,7 @@ interface ItemDao {
         LEFT JOIN categories ON items.categoryId = categories.id
         LEFT JOIN locations ON items.locationId = locations.id
         WHERE items.status = 0
+          AND items.deletedAt IS NULL
         ORDER BY items.createdAt DESC
         """
     )
@@ -35,6 +36,7 @@ interface ItemDao {
         FROM items
         LEFT JOIN categories ON items.categoryId = categories.id
         LEFT JOIN locations ON items.locationId = locations.id
+        WHERE items.deletedAt IS NULL
         ORDER BY items.createdAt DESC
         """
     )
@@ -49,6 +51,7 @@ interface ItemDao {
         LEFT JOIN categories ON items.categoryId = categories.id
         LEFT JOIN locations ON items.locationId = locations.id
         WHERE items.id = :id
+          AND items.deletedAt IS NULL
         """
     )
     fun getItemDetailById(id: Long): Flow<ItemDetail?>
@@ -62,6 +65,7 @@ interface ItemDao {
         LEFT JOIN categories ON items.categoryId = categories.id
         LEFT JOIN locations ON items.locationId = locations.id
         WHERE items.status = 0
+          AND items.deletedAt IS NULL
           AND items.expireTime IS NOT NULL
           AND items.expireTime <= :thresholdTime
           AND items.expireTime > 0
@@ -79,6 +83,7 @@ interface ItemDao {
         LEFT JOIN categories ON items.categoryId = categories.id
         LEFT JOIN locations ON items.locationId = locations.id
         WHERE items.status = 0
+          AND items.deletedAt IS NULL
           AND (
               items.name LIKE '%' || :query || '%'
               OR categories.name LIKE '%' || :query || '%'
@@ -98,7 +103,9 @@ interface ItemDao {
         FROM items
         LEFT JOIN categories ON items.categoryId = categories.id
         LEFT JOIN locations ON items.locationId = locations.id
-        WHERE items.status = 0 AND items.categoryId = :categoryId
+        WHERE items.status = 0
+          AND items.deletedAt IS NULL
+          AND items.categoryId = :categoryId
         ORDER BY items.createdAt DESC
         """
     )
@@ -112,13 +119,15 @@ interface ItemDao {
         FROM items
         LEFT JOIN categories ON items.categoryId = categories.id
         LEFT JOIN locations ON items.locationId = locations.id
-        WHERE items.status = 0 AND items.locationId = :locationId
+        WHERE items.status = 0
+          AND items.deletedAt IS NULL
+          AND items.locationId = :locationId
         ORDER BY items.createdAt DESC
         """
     )
     fun getItemsByLocation(locationId: Long): Flow<List<ItemDetail>>
 
-    @Query("SELECT * FROM items WHERE id = :id")
+    @Query("SELECT * FROM items WHERE id = :id AND deletedAt IS NULL")
     suspend fun getItemById(id: Long): Item?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -129,6 +138,12 @@ interface ItemDao {
 
     @Delete
     suspend fun delete(item: Item)
+
+    @Query("UPDATE items SET deletedAt = :deletedAt WHERE id = :id")
+    suspend fun moveToTrash(id: Long, deletedAt: Long)
+
+    @Query("UPDATE items SET deletedAt = NULL WHERE id = :id")
+    suspend fun restoreFromTrash(id: Long)
 
     @Query("UPDATE items SET status = :status WHERE id = :id")
     suspend fun updateStatus(id: Long, status: Int)
@@ -151,19 +166,21 @@ interface ItemDao {
         """
         SELECT * FROM items
         WHERE status = 0
+          AND deletedAt IS NULL
           AND expireTime IS NOT NULL
           AND expireTime > 0
         """
     )
     suspend fun getActiveItemsSync(): List<Item>
 
-    @Query("SELECT COUNT(*) FROM items WHERE status = 0")
+    @Query("SELECT COUNT(*) FROM items WHERE status = 0 AND deletedAt IS NULL")
     fun getActiveCount(): Flow<Int>
 
     @Query(
         """
         SELECT COUNT(*) FROM items
         WHERE status = 0
+          AND deletedAt IS NULL
           AND expireTime IS NOT NULL
           AND expireTime <= :thresholdTime
           AND expireTime > 0
@@ -171,19 +188,19 @@ interface ItemDao {
     )
     fun getExpiringCount(thresholdTime: Long): Flow<Int>
 
-    @Query("SELECT COUNT(*) FROM items")
+    @Query("SELECT COUNT(*) FROM items WHERE deletedAt IS NULL")
     fun getTotalCount(): Flow<Int>
 
-    @Query("SELECT COUNT(*) FROM items WHERE status = 1")
+    @Query("SELECT COUNT(*) FROM items WHERE status = 1 AND deletedAt IS NULL")
     fun getUsedUpCount(): Flow<Int>
 
-    @Query("SELECT COALESCE(SUM(price * quantity), 0.0) FROM items WHERE status = 0")
+    @Query("SELECT COALESCE(SUM(price * quantity), 0.0) FROM items WHERE status = 0 AND deletedAt IS NULL")
     fun getTotalValue(): Flow<Double>
 
-    @Query("SELECT COUNT(*) FROM items WHERE status = 0 AND categoryId = :categoryId")
+    @Query("SELECT COUNT(*) FROM items WHERE status = 0 AND deletedAt IS NULL AND categoryId = :categoryId")
     fun getCountByCategory(categoryId: Long): Flow<Int>
 
-    @Query("SELECT COUNT(*) FROM items WHERE status = 0 AND locationId = :locationId")
+    @Query("SELECT COUNT(*) FROM items WHERE status = 0 AND deletedAt IS NULL AND locationId = :locationId")
     fun getCountByLocation(locationId: Long): Flow<Int>
 
     @Query(
@@ -194,7 +211,32 @@ interface ItemDao {
         FROM items
         LEFT JOIN categories ON items.categoryId = categories.id
         LEFT JOIN locations ON items.locationId = locations.id
+        WHERE items.deletedAt IS NOT NULL
+          AND items.deletedAt >= :cutoffTime
+        ORDER BY items.deletedAt DESC
+        """
+    )
+    fun getRecycleItems(cutoffTime: Long): Flow<List<ItemDetail>>
+
+    @Query("SELECT COUNT(*) FROM items WHERE deletedAt IS NOT NULL AND deletedAt >= :cutoffTime")
+    fun getRecycleCount(cutoffTime: Long): Flow<Int>
+
+    @Query("SELECT * FROM items WHERE deletedAt IS NOT NULL AND deletedAt < :cutoffTime")
+    suspend fun getDeletedItemsBefore(cutoffTime: Long): List<Item>
+
+    @Query("DELETE FROM items WHERE deletedAt IS NOT NULL AND deletedAt < :cutoffTime")
+    suspend fun purgeDeletedBefore(cutoffTime: Long)
+
+    @Query(
+        """
+        SELECT items.*,
+               categories.name AS categoryName,
+               locations.name AS locationName
+        FROM items
+        LEFT JOIN categories ON items.categoryId = categories.id
+        LEFT JOIN locations ON items.locationId = locations.id
         WHERE items.status = 0
+          AND items.deletedAt IS NULL
           AND items.expireTime IS NOT NULL
           AND items.expireTime <= :thresholdTime
           AND items.expireTime > 0

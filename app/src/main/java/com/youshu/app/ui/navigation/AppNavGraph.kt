@@ -61,11 +61,11 @@ import com.youshu.app.ui.screen.home.HomeScreen
 import com.youshu.app.ui.screen.profile.ProfileScreen
 import com.youshu.app.ui.screen.save.SaveScreen
 import com.youshu.app.ui.screen.search.SearchScreen
+import com.youshu.app.ui.screen.trash.TrashScreen
 import com.youshu.app.ui.theme.OrangeEnd
 import com.youshu.app.ui.theme.OrangeStart
 import com.youshu.app.ui.theme.TextHint
 import com.youshu.app.ui.viewmodel.LibraryStatusFilter
-import kotlinx.coroutines.delay
 
 private data class BottomNavItem(
     val route: String,
@@ -87,13 +87,19 @@ fun AppNavGraph() {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     var cameraExitGuard by remember { mutableStateOf(false) }
+    val navigateToTopLevel: (String) -> Unit = { route ->
+        navController.navigate(route) {
+            popUpTo(navController.graph.findStartDestination().id) {
+                saveState = true
+            }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
 
     LaunchedEffect(currentRoute) {
         if (currentRoute == Screen.Camera.route) {
             cameraExitGuard = true
-        } else if (cameraExitGuard) {
-            delay(220)
-            cameraExitGuard = false
         }
     }
 
@@ -113,7 +119,7 @@ fun AppNavGraph() {
             composable(Screen.Home.route) {
                 HomeScreen(
                     onNavigateToDetail = { id -> navController.navigate(Screen.Detail.createRoute(id)) },
-                    onNavigateToLibrary = { navController.navigate(Screen.Search.route) },
+                    onNavigateToLibrary = { navigateToTopLevel(Screen.Search.route) },
                     onNavigateToSearchCenter = { navController.navigate(Screen.SearchCenter.route) },
                     onNavigateToExpiry = { navController.navigate(Screen.Expiry.route) }
                 )
@@ -122,6 +128,7 @@ fun AppNavGraph() {
             composable(Screen.Camera.route) {
                 CameraScreen(
                     onBack = { navController.popBackStack() },
+                    onDisposed = { cameraExitGuard = false },
                     onPhotoTaken = { uri ->
                         val encoded = Uri.encode(uri.toString())
                         navController.navigate(Screen.Save.createRoute(encoded)) {
@@ -134,7 +141,7 @@ fun AppNavGraph() {
             composable(Screen.SearchCenter.route) {
                 SearchCenterScreen(
                     onBack = { navController.popBackStack() },
-                    onOpenLibrary = { navController.navigate(Screen.Search.route) },
+                    onOpenLibrary = { navigateToTopLevel(Screen.Search.route) },
                     onNavigateToDetail = { id -> navController.navigate(Screen.Detail.createRoute(id)) }
                 )
             }
@@ -209,7 +216,14 @@ fun AppNavGraph() {
             composable(Screen.Profile.route) {
                 ProfileScreen(
                     onOpenExpiry = { navController.navigate(Screen.Expiry.route) },
-                    onOpenLibrary = { navController.navigate(Screen.Search.route) }
+                    onOpenLibrary = { navigateToTopLevel(Screen.Search.route) },
+                    onOpenTrash = { navController.navigate(Screen.Trash.route) }
+                )
+            }
+
+            composable(Screen.Trash.route) {
+                TrashScreen(
+                    onBack = { navController.popBackStack() }
                 )
             }
         }
@@ -217,15 +231,7 @@ fun AppNavGraph() {
         if (showBottomBar) {
             YouShuBottomBar(
                 currentRoute = currentRoute,
-                onNavigate = { route ->
-                    navController.navigate(route) {
-                        popUpTo(navController.graph.findStartDestination().id) {
-                            saveState = true
-                        }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                },
+                onNavigate = navigateToTopLevel,
                 onCameraClick = { navController.navigate(Screen.Camera.route) },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -297,7 +303,7 @@ private fun YouShuBottomBar(
                 .offset(y = 10.dp)
                 .size(width = 114.dp, height = 42.dp)
                 .clip(RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
-                .background(Color.White.copy(alpha = 0.5f))
+                .background(Color.White.copy(alpha = 0f))
         )
 
         Box(

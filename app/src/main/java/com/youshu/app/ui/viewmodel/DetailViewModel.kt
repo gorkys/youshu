@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import com.youshu.app.data.local.entity.Item
 import com.youshu.app.data.local.entity.ItemDetail
 import com.youshu.app.data.repository.ItemRepository
-import com.youshu.app.util.ImageUtil
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -41,10 +40,7 @@ class DetailViewModel @Inject constructor(
 
     fun delete(item: Item) {
         viewModelScope.launch {
-            itemRepository.delete(item)
-            if (item.imagePath.isNotEmpty()) {
-                ImageUtil.deleteImage(item.imagePath)
-            }
+            itemRepository.moveToTrash(item)
         }
     }
 }

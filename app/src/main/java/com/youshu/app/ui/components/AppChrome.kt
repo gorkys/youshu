@@ -2,6 +2,8 @@ package com.youshu.app.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -18,6 +20,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -95,25 +98,50 @@ fun AppSurfaceCard(
     contentPadding: PaddingValues = PaddingValues(20.dp),
     containerColor: Color = CardWhite.copy(alpha = 0.96f),
     shadowElevation: Dp = 18.dp,
+    enabled: Boolean = true,
+    onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    Card(
-        modifier = modifier.shadow(
-            elevation = shadowElevation,
-            shape = shape,
-            ambientColor = OrangeStart.copy(alpha = 0.08f),
-            spotColor = Color.Black.copy(alpha = 0.08f)
-        ),
+    val cardModifier = modifier.shadow(
+        elevation = shadowElevation,
         shape = shape,
-        colors = CardDefaults.cardColors(containerColor = containerColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(contentPadding),
-            content = content
-        )
+        ambientColor = OrangeStart.copy(alpha = 0.08f),
+        spotColor = Color.Black.copy(alpha = 0.08f)
+    )
+    val colors = CardDefaults.cardColors(containerColor = containerColor)
+    val elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+
+    if (onClick == null) {
+        Card(
+            modifier = cardModifier,
+            shape = shape,
+            colors = colors,
+            elevation = elevation
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(contentPadding),
+                content = content
+            )
+        }
+    } else {
+        Card(
+            onClick = onClick,
+            modifier = cardModifier,
+            enabled = enabled,
+            shape = shape,
+            colors = colors,
+            elevation = elevation,
+            interactionSource = remember { MutableInteractionSource() }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(contentPadding),
+                content = content
+            )
+        }
     }
 }
 
@@ -184,13 +212,26 @@ fun PillTag(
     text: String,
     modifier: Modifier = Modifier,
     backgroundColor: Color,
-    contentColor: Color
+    contentColor: Color,
+    onClick: (() -> Unit)? = null
 ) {
+    val shape = RoundedCornerShape(999.dp)
+    val baseModifier = modifier
+        .clip(shape)
+        .background(backgroundColor)
+
     Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(999.dp))
-            .background(backgroundColor)
-            .padding(horizontal = 8.dp, vertical = 3.dp)
+        modifier = if (onClick == null) {
+            baseModifier.padding(horizontal = 8.dp, vertical = 3.dp)
+        } else {
+            baseModifier
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onClick
+                )
+                .padding(horizontal = 8.dp, vertical = 3.dp)
+        }
     ) {
         Text(
             text = text,

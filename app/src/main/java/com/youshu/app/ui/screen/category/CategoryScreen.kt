@@ -227,52 +227,57 @@ fun CategoryScreen(
                 shadowElevation = 12.dp,
                 contentPadding = PaddingValues(16.dp)
             ) {
-                SectionHeader(
-                    title = selectedLabel,
-                    subtitle = "共 ${filteredItems.size} 件物品",
-                    modifier = Modifier.padding(bottom = 10.dp)
-                )
+                Column(modifier = Modifier.fillMaxSize()) {
+                    SectionHeader(
+                        title = selectedLabel,
+                        subtitle = "共 ${filteredItems.size} 件物品",
+                        modifier = Modifier.padding(bottom = 10.dp)
+                    )
 
-                if ((selectedTab == 0 && selectedCategoryId == null) || (selectedTab == 1 && selectedLocationId == null)) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        EmptyState(
-                            title = "先选择一个分组",
-                            message = if (selectedTab == 0) {
-                                "选择分类后，这里会展示该分类下的全部物品。"
-                            } else {
-                                "选择位置后，这里会展示该位置及子位置中的物品。"
-                            },
-                            modifier = Modifier.padding(top = 6.dp)
-                        )
-                    }
-                } else if (filteredItems.isEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        EmptyState(
-                            title = "这里还是空的",
-                            message = "当前分组下还没有录入物品。",
-                            modifier = Modifier.padding(top = 6.dp)
-                        )
-                    }
-                } else {
-                    LazyColumn(
-                        contentPadding = PaddingValues(bottom = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(filteredItems, key = { it.item.id }) { itemDetail ->
-                            ItemCard(
-                                itemDetail = itemDetail,
-                                onClick = { onNavigateToDetail(itemDetail.item.id) }
-                            )
+                    when {
+                        (selectedTab == 0 && selectedCategoryId == null) || (selectedTab == 1 && selectedLocationId == null) -> {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                EmptyState(
+                                    title = "先选择一个分组",
+                                    message = if (selectedTab == 0) {
+                                        "选择分类后，这里会展示该分类下的全部物品。"
+                                    } else {
+                                        "选择位置后，这里会展示该位置及子位置中的物品。"
+                                    },
+                                    modifier = Modifier.padding(bottom = 12.dp)
+                                )
+                            }
+                        }
+
+                        filteredItems.isEmpty() -> {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                EmptyState(
+                                    title = "这里还是空的",
+                                    message = "当前分组下还没有录入物品。",
+                                    modifier = Modifier.padding(bottom = 12.dp)
+                                )
+                            }
+                        }
+
+                        else -> {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(bottom = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                items(filteredItems, key = { it.item.id }) { itemDetail ->
+                                    ItemCard(
+                                        itemDetail = itemDetail,
+                                        onClick = { onNavigateToDetail(itemDetail.item.id) }
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -284,7 +289,7 @@ fun CategoryScreen(
         AppDialog(
             title = if (selectedTab == 0) "新增分类" else "新增位置",
             subtitle = if (selectedTab == 0) {
-                "新增后会立即出现在列表中。"
+                "新增后会立刻出现在列表中。"
             } else {
                 "如果当前已选中某个位置，则会新增到该位置下面。"
             },
@@ -295,8 +300,7 @@ fun CategoryScreen(
                 if (selectedTab == 0) {
                     viewModel.addCategory(inputName)
                 } else {
-                    val parentId = selectedLocationId
-                    viewModel.addLocation(inputName, parentId)
+                    viewModel.addLocation(inputName, selectedLocationId)
                 }
                 showAddDialog = false
             }

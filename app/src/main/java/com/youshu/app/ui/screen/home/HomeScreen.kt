@@ -1,7 +1,6 @@
 package com.youshu.app.ui.screen.home
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -144,11 +143,11 @@ fun HomeScreen(
                             val selected = selectedCategoryId == category.id
                             PillTag(
                                 text = category.name,
-                                modifier = Modifier.clickable {
-                                    selectedCategoryId = if (selected) null else category.id
-                                },
                                 backgroundColor = if (selected) OrangeStart else Color.White,
-                                contentColor = if (selected) Color.White else TextHint
+                                contentColor = if (selected) Color.White else TextHint,
+                                onClick = {
+                                    selectedCategoryId = if (selected) null else category.id
+                                }
                             )
                         }
                     }
@@ -263,10 +262,11 @@ private fun OverviewRowCard(
     onClick: () -> Unit
 ) {
     AppSurfaceCard(
-        modifier = Modifier.clickable(onClick = onClick),
+        modifier = Modifier,
         shape = RoundedCornerShape(24.dp),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
-        shadowElevation = 12.dp
+        shadowElevation = 12.dp,
+        onClick = onClick
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),

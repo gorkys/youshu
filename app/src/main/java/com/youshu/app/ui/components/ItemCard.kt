@@ -51,10 +51,11 @@ fun ItemCard(
     val item = itemDetail.item
 
     AppSurfaceCard(
-        modifier = modifier.clickable(onClick = onClick),
+        modifier = modifier,
         shape = RoundedCornerShape(22.dp),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp),
-        shadowElevation = 12.dp
+        shadowElevation = 12.dp,
+        onClick = onClick
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically

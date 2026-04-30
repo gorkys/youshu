@@ -36,6 +36,7 @@ data class Item(
     val status: Int = STATUS_IN_USE,
     val rating: Int? = null,
     val ratedAt: Long? = null,
+    val deletedAt: Long? = null,
     val note: String = "",
     val imagePath: String = "",
     val createdAt: Long = System.currentTimeMillis()

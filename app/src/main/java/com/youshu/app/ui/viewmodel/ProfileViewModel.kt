@@ -14,6 +14,8 @@ class ProfileViewModel @Inject constructor(
     itemDao: ItemDao
 ) : ViewModel() {
 
+    private val thirtyDaysMs = 30L * 24 * 60 * 60 * 1000
+
     val totalCount: StateFlow<Int> = itemDao.getTotalCount()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
@@ -31,4 +33,8 @@ class ProfileViewModel @Inject constructor(
 
     val totalValue: StateFlow<Double> = itemDao.getTotalValue()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
+
+    val trashCount: StateFlow<Int> = itemDao
+        .getRecycleCount(System.currentTimeMillis() - thirtyDaysMs)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 }

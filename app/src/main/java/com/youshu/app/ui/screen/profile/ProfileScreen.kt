@@ -71,11 +71,13 @@ private data class AiModelItem(
 fun ProfileScreen(
     onOpenExpiry: () -> Unit,
     onOpenLibrary: () -> Unit,
+    onOpenTrash: () -> Unit,
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
     val totalCount by viewModel.totalCount.collectAsState()
     val expiringCount by viewModel.expiringCount.collectAsState()
     val totalValue by viewModel.totalValue.collectAsState()
+    val trashCount by viewModel.trashCount.collectAsState()
 
     val models = remember {
         mutableStateListOf(
@@ -196,11 +198,8 @@ fun ProfileScreen(
                 MenuRow(
                     icon = Icons.Default.History,
                     title = "回收站",
-                    subtitle = "当前版本预留恢复入口",
-                    onClick = {
-                        infoDialogTitle = "回收站"
-                        infoDialogMessage = "回收站入口已预留，后续会接入已删除和已丢弃物品的恢复能力。"
-                    }
+                    subtitle = if (trashCount > 0) "当前有 $trashCount 项可在 30 天内恢复" else "30 天内可恢复最近删除的物品",
+                    onClick = onOpenTrash
                 )
                 DividerSpacer()
                 MenuRow(
@@ -252,8 +251,6 @@ fun ProfileScreen(
             subtitle = "预制入口已打通，可先维护模型别名、接口和 API Key。",
             onDismissRequest = { showModelDialog = false },
             confirmText = "新增模型",
-            secondaryText = "进入库房",
-            onSecondary = onOpenLibrary,
             onConfirm = {
                 newAlias = ""
                 newProvider = ""

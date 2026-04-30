@@ -39,6 +39,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -60,6 +61,7 @@ import java.io.File
 @Composable
 fun CameraScreen(
     onBack: () -> Unit,
+    onDisposed: () -> Unit = {},
     onPhotoTaken: (Uri) -> Unit
 ) {
     val context = LocalContext.current
@@ -67,6 +69,7 @@ fun CameraScreen(
 
     var hasCameraPermission by remember { mutableStateOf(false) }
     var imageCapture by remember { mutableStateOf<ImageCapture?>(null) }
+    var cameraProvider by remember { mutableStateOf<ProcessCameraProvider?>(null) }
     var flashEnabled by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -96,6 +99,13 @@ fun CameraScreen(
         }
     }
 
+    DisposableEffect(Unit) {
+        onDispose {
+            cameraProvider?.unbindAll()
+            onDisposed()
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -108,7 +118,8 @@ fun CameraScreen(
                     val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
 
                     cameraProviderFuture.addListener({
-                        val cameraProvider = cameraProviderFuture.get()
+                        val provider = cameraProviderFuture.get()
+                        cameraProvider = provider
                         val preview = Preview.Builder().build().also {
                             it.surfaceProvider = previewView.surfaceProvider
                         }
@@ -118,8 +129,8 @@ fun CameraScreen(
                         imageCapture = capture
 
                         try {
-                            cameraProvider.unbindAll()
-                            cameraProvider.bindToLifecycle(
+                            provider.unbindAll()
+                            provider.bindToLifecycle(
                                 lifecycleOwner,
                                 CameraSelector.DEFAULT_BACK_CAMERA,
                                 preview,

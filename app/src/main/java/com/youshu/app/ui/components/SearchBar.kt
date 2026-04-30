@@ -142,6 +142,7 @@ fun SearchBar(
             Box(
                 modifier = Modifier
                     .matchParentSize()
+                    .clip(RoundedCornerShape(26.dp))
                     .clickable(onClick = onClick)
             )
         }

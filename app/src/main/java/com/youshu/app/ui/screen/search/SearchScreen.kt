@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -155,34 +156,19 @@ private fun LibraryFilterChip(
     }
     val iconTint = if (selected) OrangeStart else TextSecondary
 
-    AppSurfaceCard(
-        modifier = modifier.clickable(onClick = onClick),
-        shape = RoundedCornerShape(22.dp),
-        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 12.dp),
-        containerColor = if (selected) OrangeStart.copy(alpha = 0.1f) else Color.White,
-        shadowElevation = 8.dp
-    ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .size(22.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFFE65B5B)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = count.toString(),
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.White
-                )
-            }
-
+    Box(modifier = modifier) {
+        AppSurfaceCard(
+            modifier = Modifier,
+            shape = RoundedCornerShape(22.dp),
+            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+            containerColor = if (selected) OrangeStart.copy(alpha = 0.1f) else Color.White,
+            shadowElevation = 8.dp,
+            onClick = onClick
+        ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 8.dp),
+                    .padding(top = 4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Icon(
@@ -190,7 +176,7 @@ private fun LibraryFilterChip(
                     contentDescription = null,
                     tint = iconTint
                 )
-                Spacer(modifier = Modifier.size(8.dp))
+                Spacer(modifier = Modifier.size(6.dp))
                 Text(
                     text = filter.label,
                     fontSize = 12.sp,
@@ -198,6 +184,23 @@ private fun LibraryFilterChip(
                     color = if (selected) OrangeStart else TextPrimary
                 )
             }
+        }
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .offset(x = 5.dp, y = (-5).dp)
+                .size(20.dp)
+                .clip(CircleShape)
+                .background(Color(0xFFE65B5B)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = count.toString(),
+                fontSize = 9.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White
+            )
         }
     }
 }

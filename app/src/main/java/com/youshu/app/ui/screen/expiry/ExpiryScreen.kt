@@ -1,7 +1,6 @@
 package com.youshu.app.ui.screen.expiry
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -118,9 +117,9 @@ fun ExpiryScreen(
                     val selected = selectedTab == index
                     PillTag(
                         text = tab.label,
-                        modifier = Modifier.clickable { selectedTab = index },
                         backgroundColor = if (selected) OrangeStart else Color.White,
-                        contentColor = if (selected) Color.White else TextHint
+                        contentColor = if (selected) Color.White else TextHint,
+                        onClick = { selectedTab = index }
                     )
                 }
             }
