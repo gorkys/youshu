@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -24,7 +23,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
@@ -33,7 +31,6 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -41,6 +38,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -57,12 +55,14 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.youshu.app.data.local.entity.Item
+import com.youshu.app.data.local.entity.ItemDetail
 import com.youshu.app.ui.components.AppDecorativeBackground
 import com.youshu.app.ui.components.AppDialog
 import com.youshu.app.ui.components.AppSurfaceCard
 import com.youshu.app.ui.components.CategoryTag
 import com.youshu.app.ui.components.GradientButton
 import com.youshu.app.ui.components.PillTag
+import com.youshu.app.ui.navigation.Screen
 import com.youshu.app.ui.theme.OrangeStart
 import com.youshu.app.ui.theme.StatusExpired
 import com.youshu.app.ui.theme.TagGreen
@@ -81,6 +81,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun DetailScreen(
     itemId: Long,
+    scope: String,
     onBack: () -> Unit,
     onEdit: (Long) -> Unit,
     viewModel: DetailViewModel = hiltViewModel()
@@ -89,25 +90,46 @@ fun DetailScreen(
     var showDeleteDialog by rememberSaveable { mutableStateOf(false) }
     var showRateDialog by rememberSaveable { mutableStateOf(false) }
     var pendingRating by rememberSaveable { mutableIntStateOf(5) }
-    val pagerState = rememberPagerState(pageCount = { items.size })
-    val scope = rememberCoroutineScope()
+    var scopedItemIds by remember(scope, itemId) { mutableStateOf<List<Long>>(emptyList()) }
+    val pagerItems = remember(items, scope, scopedItemIds, itemId) {
+        if (scope == Screen.Detail.ScopeAll) {
+            items
+        } else {
+            val fallbackIds = items
+                .filter { matchesDetailScope(it, scope) }
+                .map { it.item.id }
+            val effectiveIds = if (scopedItemIds.isEmpty()) fallbackIds else scopedItemIds
+            items.filter { it.item.id in effectiveIds.ifEmpty { listOf(itemId) } }
+        }
+    }
+    val pagerState = rememberPagerState(pageCount = { pagerItems.size })
+    val pagerScope = rememberCoroutineScope()
     var didJumpToInitialPage by rememberSaveable { mutableStateOf(false) }
 
-    LaunchedEffect(items, itemId) {
-        if (items.isEmpty()) {
-            didJumpToInitialPage = false
-            return@LaunchedEffect
-        }
-        val initialIndex = items.indexOfFirst { it.item.id == itemId }
-        if (!didJumpToInitialPage && initialIndex >= 0) {
-            pagerState.scrollToPage(initialIndex)
-            didJumpToInitialPage = true
-        } else if (pagerState.currentPage > items.lastIndex) {
-            pagerState.scrollToPage(items.lastIndex)
+    LaunchedEffect(items, itemId, scope) {
+        if (scope != Screen.Detail.ScopeAll && items.isNotEmpty() && scopedItemIds.isEmpty()) {
+            scopedItemIds = items
+                .filter { matchesDetailScope(it, scope) }
+                .map { it.item.id }
+                .ifEmpty { listOf(itemId) }
         }
     }
 
-    if (items.isEmpty()) {
+    LaunchedEffect(pagerItems, itemId) {
+        if (pagerItems.isEmpty()) {
+            didJumpToInitialPage = false
+            return@LaunchedEffect
+        }
+        val initialIndex = pagerItems.indexOfFirst { it.item.id == itemId }
+        if (!didJumpToInitialPage && initialIndex >= 0) {
+            pagerState.scrollToPage(initialIndex)
+            didJumpToInitialPage = true
+        } else if (pagerState.currentPage > pagerItems.lastIndex) {
+            pagerState.scrollToPage(pagerItems.lastIndex)
+        }
+    }
+
+    if (pagerItems.isEmpty()) {
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
@@ -121,7 +143,7 @@ fun DetailScreen(
         return
     }
 
-    val detail = items.getOrNull(pagerState.currentPage) ?: items.first()
+    val detail = pagerItems.getOrNull(pagerState.currentPage) ?: pagerItems.first()
     val item = detail.item
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -142,7 +164,7 @@ fun DetailScreen(
                     state = pagerState,
                     modifier = Modifier.fillMaxSize()
                 ) { page ->
-                    val pageItem = items[page].item
+                    val pageItem = pagerItems[page].item
                     if (pageItem.imagePath.isNotEmpty()) {
                         AsyncImage(
                             model = pageItem.imagePath,
@@ -193,42 +215,26 @@ fun DetailScreen(
                         )
                 )
 
-                IconButton(
-                    onClick = onBack,
-                    modifier = Modifier
-                        .statusBarsPadding()
-                        .padding(12.dp)
-                        .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.28f))
-                        .align(Alignment.TopStart)
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "返回",
-                        tint = Color.White
-                    )
-                }
-
                 if (pagerState.currentPage > 0) {
                     ArrowCircleButton(
                         icon = Icons.Default.ChevronLeft,
                         modifier = Modifier.align(Alignment.CenterStart)
                     ) {
-                        scope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1) }
+                        pagerScope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1) }
                     }
                 }
 
-                if (pagerState.currentPage < items.lastIndex) {
+                if (pagerState.currentPage < pagerItems.lastIndex) {
                     ArrowCircleButton(
                         icon = Icons.Default.ChevronRight,
                         modifier = Modifier.align(Alignment.CenterEnd)
                     ) {
-                        scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) }
+                        pagerScope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) }
                     }
                 }
 
                 Text(
-                    text = "${pagerState.currentPage + 1}/${items.size}",
+                    text = "${pagerState.currentPage + 1}/${pagerItems.size}",
                     color = Color.White,
                     fontSize = 12.sp,
                     modifier = Modifier
@@ -338,9 +344,7 @@ fun DetailScreen(
                             fontSize = 13.sp
                         )
 
-                        else -> Row(
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        else -> Row(verticalAlignment = Alignment.CenterVertically) {
                             repeat(5) { index ->
                                 Icon(
                                     imageVector = Icons.Default.Star,
@@ -574,5 +578,19 @@ private fun ratingText(rating: Int): String {
         3 -> "3 星，中规中矩"
         2 -> "2 星，谨慎再买"
         else -> "1 星，终身拉黑"
+    }
+}
+
+private fun matchesDetailScope(itemDetail: ItemDetail, scope: String): Boolean {
+    val item = itemDetail.item
+    return when (scope) {
+        Screen.Detail.ScopeUsedUp -> item.status == Item.STATUS_USED_UP
+        Screen.Detail.ScopePendingReview -> {
+            item.status == Item.STATUS_USED_UP && item.rating == null
+        }
+        Screen.Detail.ScopeReviewed -> {
+            item.status == Item.STATUS_USED_UP && item.rating != null
+        }
+        else -> true
     }
 }

@@ -234,21 +234,35 @@ fun CategoryScreen(
                 )
 
                 if ((selectedTab == 0 && selectedCategoryId == null) || (selectedTab == 1 && selectedLocationId == null)) {
-                    EmptyState(
-                        title = "先选择一个分组",
-                        message = if (selectedTab == 0) {
-                            "选择分类后，这里会展示该分类下的全部物品。"
-                        } else {
-                            "选择位置后，这里会展示该位置及子位置中的物品。"
-                        },
-                        modifier = Modifier.padding(top = 6.dp)
-                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        EmptyState(
+                            title = "先选择一个分组",
+                            message = if (selectedTab == 0) {
+                                "选择分类后，这里会展示该分类下的全部物品。"
+                            } else {
+                                "选择位置后，这里会展示该位置及子位置中的物品。"
+                            },
+                            modifier = Modifier.padding(top = 6.dp)
+                        )
+                    }
                 } else if (filteredItems.isEmpty()) {
-                    EmptyState(
-                        title = "这里还是空的",
-                        message = "当前分组下还没有录入物品。",
-                        modifier = Modifier.padding(top = 6.dp)
-                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        EmptyState(
+                            title = "这里还是空的",
+                            message = "当前分组下还没有录入物品。",
+                            modifier = Modifier.padding(top = 6.dp)
+                        )
+                    }
                 } else {
                     LazyColumn(
                         contentPadding = PaddingValues(bottom = 8.dp),

@@ -190,11 +190,11 @@ fun PillTag(
         modifier = modifier
             .clip(RoundedCornerShape(999.dp))
             .background(backgroundColor)
-            .padding(horizontal = 10.dp, vertical = 5.dp)
+            .padding(horizontal = 8.dp, vertical = 3.dp)
     ) {
         Text(
             text = text,
-            fontSize = 11.sp,
+            fontSize = 10.sp,
             fontWeight = FontWeight.Medium,
             color = contentColor
         )

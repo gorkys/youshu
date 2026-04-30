@@ -44,6 +44,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -63,6 +64,7 @@ import com.youshu.app.ui.screen.search.SearchScreen
 import com.youshu.app.ui.theme.OrangeEnd
 import com.youshu.app.ui.theme.OrangeStart
 import com.youshu.app.ui.theme.TextHint
+import com.youshu.app.ui.viewmodel.LibraryStatusFilter
 import kotlinx.coroutines.delay
 
 private data class BottomNavItem(
@@ -156,11 +158,16 @@ fun AppNavGraph() {
 
             composable(
                 route = Screen.Detail.route,
-                arguments = listOf(navArgument("itemId") { type = NavType.LongType })
+                arguments = listOf(
+                    navArgument("itemId") { type = NavType.LongType },
+                    navArgument("scope") { type = NavType.StringType }
+                )
             ) { backStackEntry ->
                 val itemId = backStackEntry.arguments?.getLong("itemId") ?: return@composable
+                val scope = backStackEntry.arguments?.getString("scope") ?: Screen.Detail.ScopeAll
                 DetailScreen(
                     itemId = itemId,
+                    scope = scope,
                     onBack = { navController.popBackStack() },
                     onEdit = { id -> navController.navigate(Screen.Edit.createRoute(id)) }
                 )
@@ -168,7 +175,9 @@ fun AppNavGraph() {
 
             composable(Screen.Search.route) {
                 SearchScreen(
-                    onNavigateToDetail = { id -> navController.navigate(Screen.Detail.createRoute(id)) }
+                    onNavigateToDetail = { id, filter ->
+                        navController.navigate(Screen.Detail.createRoute(id, filter.toDetailScope()))
+                    }
                 )
             }
 
@@ -210,7 +219,9 @@ fun AppNavGraph() {
                 currentRoute = currentRoute,
                 onNavigate = { route ->
                     navController.navigate(route) {
-                        popUpTo(Screen.Home.route) { saveState = true }
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
+                        }
                         launchSingleTop = true
                         restoreState = true
                     }
@@ -222,6 +233,15 @@ fun AppNavGraph() {
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             )
         }
+    }
+}
+
+private fun LibraryStatusFilter.toDetailScope(): String {
+    return when (this) {
+        LibraryStatusFilter.ALL -> Screen.Detail.ScopeAll
+        LibraryStatusFilter.USED_UP -> Screen.Detail.ScopeUsedUp
+        LibraryStatusFilter.PENDING_REVIEW -> Screen.Detail.ScopePendingReview
+        LibraryStatusFilter.REVIEWED -> Screen.Detail.ScopeReviewed
     }
 }
 
@@ -285,7 +305,6 @@ private fun YouShuBottomBar(
                 .align(Alignment.TopCenter)
                 .offset(y = (-4).dp)
                 .size(60.dp)
-                .shadow(18.dp, CircleShape)
                 .clip(CircleShape)
                 .background(Color.White.copy(alpha = 0.92f))
                 .clickable(onClick = onCameraClick),

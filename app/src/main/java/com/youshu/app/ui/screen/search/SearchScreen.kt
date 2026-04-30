@@ -39,17 +39,9 @@ import com.youshu.app.ui.components.AppDecorativeBackground
 import com.youshu.app.ui.components.AppSurfaceCard
 import com.youshu.app.ui.components.EmptyState
 import com.youshu.app.ui.components.ItemCard
-import com.youshu.app.ui.components.PillTag
 import com.youshu.app.ui.components.SearchBar
 import com.youshu.app.ui.components.SectionHeader
 import com.youshu.app.ui.theme.OrangeStart
-import com.youshu.app.ui.theme.TagGreen
-import com.youshu.app.ui.theme.TagGreenText
-import com.youshu.app.ui.theme.TagOrange
-import com.youshu.app.ui.theme.TagOrangeText
-import com.youshu.app.ui.theme.TagRed
-import com.youshu.app.ui.theme.TagRedText
-import com.youshu.app.ui.theme.TextHint
 import com.youshu.app.ui.theme.TextPrimary
 import com.youshu.app.ui.theme.TextSecondary
 import com.youshu.app.ui.viewmodel.LibraryStatusFilter
@@ -57,7 +49,7 @@ import com.youshu.app.ui.viewmodel.SearchViewModel
 
 @Composable
 fun SearchScreen(
-    onNavigateToDetail: (Long) -> Unit,
+    onNavigateToDetail: (Long, LibraryStatusFilter) -> Unit,
     viewModel: SearchViewModel = hiltViewModel()
 ) {
     val query by viewModel.query.collectAsState()
@@ -104,7 +96,7 @@ fun SearchScreen(
                 statusCounts.forEach { item ->
                     val selected = selectedFilter == item.filter
                     LibraryFilterChip(
-                        text = item.filter.label,
+                        filter = item.filter,
                         count = item.count,
                         selected = selected,
                         modifier = Modifier.weight(1f),
@@ -119,7 +111,7 @@ fun SearchScreen(
                     message = if (query.isBlank()) {
                         "当前筛选状态下还没有物品。"
                     } else {
-                        "可以换个关键词，或切换上面的状态筛选。"
+                        "可以更换关键词，或者切换上面的状态筛选。"
                     },
                     modifier = Modifier.padding(top = 24.dp)
                 )
@@ -138,7 +130,7 @@ fun SearchScreen(
                     items(results, key = { it.item.id }) { itemDetail ->
                         ItemCard(
                             itemDetail = itemDetail,
-                            onClick = { onNavigateToDetail(itemDetail.item.id) }
+                            onClick = { onNavigateToDetail(itemDetail.item.id, selectedFilter) }
                         )
                     }
                 }
@@ -149,18 +141,19 @@ fun SearchScreen(
 
 @Composable
 private fun LibraryFilterChip(
-    text: String,
+    filter: LibraryStatusFilter,
     count: Int,
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val (icon, background, contentColor) = when (text) {
-        LibraryStatusFilter.USED_UP.label -> Triple(Icons.Default.TaskAlt, TagOrange, TagOrangeText)
-        LibraryStatusFilter.PENDING_REVIEW.label -> Triple(Icons.Default.RateReview, TagRed, TagRedText)
-        LibraryStatusFilter.REVIEWED.label -> Triple(Icons.Default.RateReview, TagGreen, TagGreenText)
-        else -> Triple(Icons.Default.Inventory2, Color.White, TextSecondary)
+    val icon: ImageVector = when (filter) {
+        LibraryStatusFilter.ALL -> Icons.Default.Inventory2
+        LibraryStatusFilter.USED_UP -> Icons.Default.TaskAlt
+        LibraryStatusFilter.PENDING_REVIEW,
+        LibraryStatusFilter.REVIEWED -> Icons.Default.RateReview
     }
+    val iconTint = if (selected) OrangeStart else TextSecondary
 
     AppSurfaceCard(
         modifier = modifier.clickable(onClick = onClick),
@@ -169,25 +162,42 @@ private fun LibraryFilterChip(
         containerColor = if (selected) OrangeStart.copy(alpha = 0.1f) else Color.White,
         shadowElevation = 8.dp
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = if (selected) OrangeStart else contentColor
-            )
-            Text(
-                text = text,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = if (selected) OrangeStart else TextPrimary,
-                modifier = Modifier.padding(top = 6.dp)
-            )
-            PillTag(
-                text = "${count}件",
-                backgroundColor = if (selected) OrangeStart else background,
-                contentColor = if (selected) Color.White else contentColor,
-                modifier = Modifier.padding(top = 8.dp)
-            )
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .size(22.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFE65B5B)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = count.toString(),
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
+                )
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconTint
+                )
+                Spacer(modifier = Modifier.size(8.dp))
+                Text(
+                    text = filter.label,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (selected) OrangeStart else TextPrimary
+                )
+            }
         }
     }
 }

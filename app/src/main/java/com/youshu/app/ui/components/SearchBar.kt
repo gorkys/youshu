@@ -57,8 +57,7 @@ fun SearchBar(
             .height(52.dp)
             .clip(RoundedCornerShape(26.dp))
             .background(Color.White.copy(alpha = 0.96f))
-            .border(1.dp, DividerSoft, RoundedCornerShape(26.dp))
-            .then(if (readOnly && onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
+            .border(1.dp, DividerSoft, RoundedCornerShape(26.dp)),
         contentAlignment = Alignment.CenterStart
     ) {
         Icon(
@@ -136,6 +135,14 @@ fun SearchBar(
                     .padding(end = 16.dp)
                     .size(18.dp),
                 tint = OrangeStart.copy(alpha = 0.65f)
+            )
+        }
+
+        if (readOnly && onClick != null) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .clickable(onClick = onClick)
             )
         }
     }
