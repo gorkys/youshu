@@ -1,8 +1,9 @@
 # 有数
 
 <p align="center">
-  <img src="./宣传图.png" alt="有数 Banner" width="100%" />
+  <img src="./logo.png" alt="有数 Banner" width="35%" />
 </p>
+
 
 <p align="center">
   <a href="#"><img src="https://img.shields.io/badge/platform-Android-3DDC84?logo=android&logoColor=white" alt="Android" /></a>
@@ -244,12 +245,4 @@ chore: ...
 
 ## License
 
-当前仓库**尚未附带正式的 `LICENSE` 文件**。
-
-这意味着项目暂时没有明确对外授权条款。如果准备公开发布或接受外部贡献，建议尽快补充明确协议，例如：
-
-- MIT
-- Apache-2.0
-- GPL-3.0
-
-在正式补充之前，请不要默认将其视为已开放商业使用许可。
+[MIT](https://github.com/openilink/openilink-hub/blob/main/LICENSE) — 随便用，不限商用。
