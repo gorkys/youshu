@@ -9,7 +9,7 @@
   <a href="#"><img src="https://img.shields.io/badge/Kotlin-2.1.0-7F52FF?logo=kotlin&logoColor=white" alt="Kotlin" /></a>
   <a href="#"><img src="https://img.shields.io/badge/Jetpack%20Compose-Material%203-4285F4?logo=jetpackcompose&logoColor=white" alt="Jetpack Compose" /></a>
   <a href="#"><img src="https://img.shields.io/badge/minSdk-26-FF8A00" alt="minSdk 26" /></a>
-  <a href="#"><img src="https://img.shields.io/badge/build-local%20debug-passing-success" alt="Local Debug Build Passing" /></a>
+  <a href="https://github.com/gorkys/youshu/actions/workflows/android-ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/gorkys/youshu/android-ci.yml?branch=master&label=ci" alt="CI Status" /></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-22c55e" alt="License MIT" /></a>
 </p>
 
@@ -237,9 +237,9 @@ chore: ...
 
 - [ ] 接入真实 AI 识别与自然语言搜索
 - [ ] 增加更完整的设置中心
-- [ ] 补充回收站批量恢复 / 永久删除能力
+- [x] 补充回收站批量恢复 / 永久删除能力
 - [ ] 增加 Demo GIF 或录屏视频
-- [ ] 补充自动化测试与 CI
+- [x] 补充自动化测试与 CI
 
 ---
 

@@ -145,6 +145,9 @@ interface ItemDao {
     @Query("UPDATE items SET deletedAt = NULL WHERE id = :id")
     suspend fun restoreFromTrash(id: Long)
 
+    @Query("UPDATE items SET deletedAt = NULL WHERE id IN (:ids)")
+    suspend fun restoreItemsFromTrash(ids: List<Long>)
+
     @Query("UPDATE items SET status = :status WHERE id = :id")
     suspend fun updateStatus(id: Long, status: Int)
 
@@ -224,8 +227,14 @@ interface ItemDao {
     @Query("SELECT * FROM items WHERE deletedAt IS NOT NULL AND deletedAt < :cutoffTime")
     suspend fun getDeletedItemsBefore(cutoffTime: Long): List<Item>
 
+    @Query("SELECT * FROM items WHERE id IN (:ids) AND deletedAt IS NOT NULL")
+    suspend fun getDeletedItemsByIds(ids: List<Long>): List<Item>
+
     @Query("DELETE FROM items WHERE deletedAt IS NOT NULL AND deletedAt < :cutoffTime")
     suspend fun purgeDeletedBefore(cutoffTime: Long)
+
+    @Query("DELETE FROM items WHERE id IN (:ids) AND deletedAt IS NOT NULL")
+    suspend fun deleteDeletedItemsByIds(ids: List<Long>)
 
     @Query(
         """

@@ -13,6 +13,9 @@ local.properties
 *.apk
 *.ap_
 *.aab
+*.jks
+*.keystore
+keystore.properties
 
 # Spec / design docs
 you-shu-prd.md

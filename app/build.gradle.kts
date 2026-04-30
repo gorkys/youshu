@@ -14,8 +14,8 @@ android {
         applicationId = "com.youshu.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -81,4 +81,7 @@ dependencies {
     ksp(libs.hilt.compiler)
 
     implementation(libs.androidx.work.runtime)
+
+    testImplementation(libs.junit4)
+    testImplementation(libs.kotlinx.coroutines.test)
 }

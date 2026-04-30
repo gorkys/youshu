@@ -45,6 +45,21 @@ class ItemRepository @Inject constructor(
 
     suspend fun restoreFromTrash(id: Long) = itemDao.restoreFromTrash(id)
 
+    suspend fun restoreFromTrash(ids: List<Long>) {
+        if (ids.isNotEmpty()) {
+            itemDao.restoreItemsFromTrash(ids)
+        }
+    }
+
+    suspend fun permanentlyDeleteFromTrash(ids: List<Long>): List<Item> {
+        if (ids.isEmpty()) return emptyList()
+        val deletedItems = itemDao.getDeletedItemsByIds(ids)
+        if (deletedItems.isNotEmpty()) {
+            itemDao.deleteDeletedItemsByIds(deletedItems.map { it.id })
+        }
+        return deletedItems
+    }
+
     suspend fun markAsUsed(id: Long, rating: Int? = null) {
         val ratedAt = rating?.let { System.currentTimeMillis() }
         itemDao.updateStatusAndRating(id, Item.STATUS_USED_UP, rating, ratedAt)

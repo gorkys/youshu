@@ -225,7 +225,7 @@ fun ProfileScreen(
                 MenuRow(
                     icon = Icons.Default.Info,
                     title = "关于我们",
-                    subtitle = "版本 1.0.0",
+                    subtitle = "版本 1.1.0",
                     onClick = {
                         infoDialogTitle = "关于我们"
                         infoDialogMessage = "有数：拍一下、保存一下，就能把家里的物品管理起来。"
