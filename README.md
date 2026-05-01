@@ -108,8 +108,8 @@ UI -> ViewModel -> Repository -> Room DB
 ### 克隆项目
 
 ```bash
-git clone <your-repo-url>
-cd you-shu
+git clone https://github.com/gorkys/youshu.git
+cd youshu
 ```
 
 ### 同步与构建
@@ -242,6 +242,8 @@ chore: ...
 - [x] 补充自动化测试与 CI
 
 ---
+## 社区支持
+问题反馈 / 讨论 → [Linux.do 社区](https://linux.do/)
 
 ## License
 
