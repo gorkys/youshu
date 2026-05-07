@@ -18,6 +18,9 @@ interface CategoryDao {
     @Query("SELECT * FROM categories WHERE id = :id")
     suspend fun getCategoryById(id: Long): Category?
 
+    @Query("SELECT * FROM categories ORDER BY id ASC")
+    suspend fun getAllCategoriesSnapshot(): List<Category>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(category: Category): Long
 
@@ -29,4 +32,7 @@ interface CategoryDao {
 
     @Query("SELECT COUNT(*) FROM categories")
     suspend fun getCount(): Int
+
+    @Query("DELETE FROM categories")
+    suspend fun deleteAll()
 }

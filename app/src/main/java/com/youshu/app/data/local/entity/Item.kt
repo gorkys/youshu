@@ -39,11 +39,42 @@ data class Item(
     val deletedAt: Long? = null,
     val note: String = "",
     val imagePath: String = "",
+    val imagePaths: String = "",
     val createdAt: Long = System.currentTimeMillis()
 ) {
+    fun imagePathList(): List<String> {
+        return decodeImagePaths(imagePaths, imagePath)
+    }
+
+    fun primaryImagePath(): String {
+        return imagePathList().firstOrNull().orEmpty()
+    }
+
     companion object {
         const val STATUS_IN_USE = 0
         const val STATUS_USED_UP = 1
         const val STATUS_DISCARDED = 2
+
+        fun encodeImagePaths(paths: List<String>): String {
+            return paths
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .distinct()
+                .joinToString(separator = "\n")
+        }
+
+        fun decodeImagePaths(encoded: String, legacyPrimaryPath: String = ""): List<String> {
+            val parsed = encoded
+                .lineSequence()
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .toList()
+
+            return when {
+                parsed.isNotEmpty() -> parsed
+                legacyPrimaryPath.isNotBlank() -> listOf(legacyPrimaryPath)
+                else -> emptyList()
+            }
+        }
     }
 }

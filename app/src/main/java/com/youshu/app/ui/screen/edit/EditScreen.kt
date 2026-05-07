@@ -1,9 +1,11 @@
 package com.youshu.app.ui.screen.edit
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,15 +16,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -30,12 +30,9 @@ import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -45,23 +42,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import coil.compose.AsyncImage
 import com.youshu.app.ui.components.AppDecorativeBackground
 import com.youshu.app.ui.components.AppDialog
 import com.youshu.app.ui.components.AppSurfaceCard
 import com.youshu.app.ui.components.EditorInputBox
 import com.youshu.app.ui.components.EditorSectionLabel
 import com.youshu.app.ui.components.EditorSelectionChip
+import com.youshu.app.ui.components.ExpiryPickerDialog
 import com.youshu.app.ui.components.GradientButton
+import com.youshu.app.ui.components.ItemImageGallery
 import com.youshu.app.ui.components.QuantityStepper
+import com.youshu.app.ui.screen.save.SavePhotoMode
 import com.youshu.app.ui.theme.TextHint
 import com.youshu.app.ui.theme.TextPrimary
 import com.youshu.app.ui.theme.TextSecondary
@@ -70,22 +64,31 @@ import com.youshu.app.util.DateUtil
 
 private data class ExpiryQuickOption(val label: String, val timestamp: Long)
 
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun EditScreen(
     itemId: Long,
+    pendingImageUri: Uri?,
+    pendingPhotoMode: SavePhotoMode?,
     onBack: () -> Unit,
     onSaved: () -> Unit,
+    onOpenCamera: (SavePhotoMode) -> Unit,
     viewModel: EditViewModel = hiltViewModel()
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val state by viewModel.state.collectAsState()
     val categories by viewModel.categories.collectAsState()
     val locations by viewModel.locations.collectAsState()
     val leafLocations = locations.filter { it.parentId != null }
 
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetMultipleContents()
+    ) { uris ->
+        viewModel.appendPhotos(context, uris)
+    }
+
     var showAdvanced by remember { mutableStateOf(true) }
     var showDatePicker by remember { mutableStateOf(false) }
-    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = state.expireTime)
     val expiryQuickOptions = remember {
         listOf(
             ExpiryQuickOption("7天", DateUtil.daysFromNow(7)),
@@ -98,6 +101,14 @@ fun EditScreen(
 
     LaunchedEffect(itemId) {
         viewModel.loadItem(itemId)
+    }
+
+    LaunchedEffect(pendingImageUri, pendingPhotoMode) {
+        val uri = pendingImageUri ?: return@LaunchedEffect
+        when (pendingPhotoMode) {
+            SavePhotoMode.REPLACE_PRIMARY -> viewModel.replacePrimaryPhoto(context, uri)
+            SavePhotoMode.APPEND, null -> viewModel.appendPhotos(context, listOf(uri))
+        }
     }
 
     LaunchedEffect(state.isSaved) {
@@ -114,6 +125,7 @@ fun EditScreen(
                 .fillMaxSize()
                 .statusBarsPadding()
                 .navigationBarsPadding()
+                .imePadding()
         ) {
             Row(
                 modifier = Modifier
@@ -131,7 +143,6 @@ fun EditScreen(
                 Text(
                     text = "编辑物品",
                     fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
                     color = TextPrimary
                 )
             }
@@ -145,60 +156,29 @@ fun EditScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
+                        .imePadding()
                         .verticalScroll(rememberScrollState())
                         .padding(bottom = 24.dp)
                 ) {
-                    state.imagePath.takeIf { it.isNotEmpty() }?.let { imagePath ->
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(210.dp)
-                                .clip(RoundedCornerShape(26.dp))
-                        ) {
-                            AsyncImage(
-                                model = imagePath,
-                                contentDescription = "物品图片",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(
-                                        Brush.verticalGradient(
-                                            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.24f))
-                                        )
-                                    )
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.BottomStart)
-                                    .padding(16.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.White.copy(alpha = 0.18f))
-                                    .padding(horizontal = 12.dp, vertical = 8.dp)
-                            ) {
-                                Text(
-                                    text = "当前图片",
-                                    color = Color.White,
-                                    fontSize = 12.sp
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(18.dp))
-                    }
+                    ItemImageGallery(
+                        imagePaths = state.imagePaths,
+                        onAddPhoto = { galleryLauncher.launch("image/*") },
+                        onRetakePrimary = { onOpenCamera(SavePhotoMode.REPLACE_PRIMARY) },
+                        onRemoveImage = viewModel::removePhoto
+                    )
 
+                    Spacer(modifier = Modifier.size(18.dp))
                     EditorSectionLabel(label = "物品名称")
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.size(8.dp))
                     EditorInputBox(
                         value = state.name,
                         onValueChange = viewModel::updateName,
                         placeholder = "请输入物品名称"
                     )
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.size(16.dp))
                     EditorSectionLabel(label = "分类")
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.size(8.dp))
                     FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -216,9 +196,9 @@ fun EditScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.size(16.dp))
                     EditorSectionLabel(label = "存放位置")
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.size(8.dp))
                     FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -237,7 +217,7 @@ fun EditScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.size(16.dp))
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -265,9 +245,9 @@ fun EditScreen(
                         exit = shrinkVertically()
                     ) {
                         Column {
-                            Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.size(12.dp))
                             EditorSectionLabel(label = "数量")
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.size(8.dp))
                             QuantityStepper(
                                 quantity = state.quantity,
                                 unit = state.unit,
@@ -275,9 +255,9 @@ fun EditScreen(
                                 onIncrease = { viewModel.updateQuantity(state.quantity + 1) }
                             )
 
-                            Spacer(modifier = Modifier.height(18.dp))
+                            Spacer(modifier = Modifier.size(18.dp))
                             EditorSectionLabel(label = "有效期")
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.size(8.dp))
                             EditorInputBox(
                                 value = state.expireTime?.let(DateUtil::formatDate).orEmpty(),
                                 onValueChange = {},
@@ -293,7 +273,7 @@ fun EditScreen(
                                     )
                                 }
                             )
-                            Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.size(10.dp))
                             FlowRow(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -307,18 +287,18 @@ fun EditScreen(
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(18.dp))
+                            Spacer(modifier = Modifier.size(18.dp))
                             EditorSectionLabel(label = "价格（估算）")
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.size(8.dp))
                             EditorInputBox(
                                 value = state.price,
                                 onValueChange = viewModel::updatePrice,
                                 placeholder = "例如 8.90"
                             )
 
-                            Spacer(modifier = Modifier.height(18.dp))
+                            Spacer(modifier = Modifier.size(18.dp))
                             EditorSectionLabel(label = "备注")
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.size(8.dp))
                             EditorInputBox(
                                 value = state.note,
                                 onValueChange = viewModel::updateNote,
@@ -329,13 +309,13 @@ fun EditScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.size(24.dp))
                     GradientButton(
-                        text = if (state.isSaving) "保存中…" else "保存修改",
+                        text = if (state.isSaving) "保存中..." else "保存修改",
                         onClick = viewModel::save,
                         enabled = state.name.isNotBlank() && !state.isSaving
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.size(8.dp))
                     Text(
                         text = "修改后会同步更新首页、库房和分类结果。",
                         fontSize = 12.sp,
@@ -347,23 +327,18 @@ fun EditScreen(
         }
 
         if (showDatePicker) {
-            AppDialog(
-                title = "选择有效期",
-                subtitle = "可以切换月份快速定位，也可以使用下面的快捷月份。",
+            ExpiryPickerDialog(
+                selectedDateMillis = state.expireTime,
                 onDismissRequest = { showDatePicker = false },
-                confirmText = "确定",
-                secondaryText = "清空",
-                onSecondary = {
+                onClear = {
                     viewModel.updateExpireTime(null)
                     showDatePicker = false
                 },
-                onConfirm = {
-                    viewModel.updateExpireTime(datePickerState.selectedDateMillis)
+                onConfirm = { selectedMillis ->
+                    viewModel.updateExpireTime(selectedMillis)
                     showDatePicker = false
                 }
-            ) {
-                DatePicker(state = datePickerState)
-            }
+            )
         }
     }
 }

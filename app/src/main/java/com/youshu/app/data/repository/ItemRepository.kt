@@ -38,6 +38,11 @@ class ItemRepository @Inject constructor(
 
     suspend fun delete(item: Item) = itemDao.delete(item)
 
+    suspend fun replaceAll(items: List<Item>) {
+        itemDao.deleteAll()
+        items.forEach { itemDao.insert(it) }
+    }
+
     suspend fun moveToTrash(item: Item) = itemDao.moveToTrash(
         id = item.id,
         deletedAt = System.currentTimeMillis()
@@ -92,4 +97,6 @@ class ItemRepository @Inject constructor(
         }
         return expiredItems
     }
+
+    suspend fun getAllItemsSnapshot(): List<Item> = itemDao.getAllItemsSnapshot()
 }

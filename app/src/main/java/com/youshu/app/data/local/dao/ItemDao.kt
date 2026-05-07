@@ -130,6 +130,9 @@ interface ItemDao {
     @Query("SELECT * FROM items WHERE id = :id AND deletedAt IS NULL")
     suspend fun getItemById(id: Long): Item?
 
+    @Query("SELECT * FROM items ORDER BY id ASC")
+    suspend fun getAllItemsSnapshot(): List<Item>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(item: Item): Long
 
@@ -235,6 +238,9 @@ interface ItemDao {
 
     @Query("DELETE FROM items WHERE id IN (:ids) AND deletedAt IS NOT NULL")
     suspend fun deleteDeletedItemsByIds(ids: List<Long>)
+
+    @Query("DELETE FROM items")
+    suspend fun deleteAll()
 
     @Query(
         """

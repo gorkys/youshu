@@ -139,7 +139,7 @@ fun HomeScreen(
                             .horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        categories.take(8).forEach { category ->
+                        categories.forEach { category ->
                             val selected = selectedCategoryId == category.id
                             PillTag(
                                 text = category.name,

@@ -21,14 +21,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -70,8 +69,8 @@ private data class AiModelItem(
 @Composable
 fun ProfileScreen(
     onOpenExpiry: () -> Unit,
-    onOpenLibrary: () -> Unit,
     onOpenTrash: () -> Unit,
+    onOpenSettings: () -> Unit,
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
     val totalCount by viewModel.totalCount.collectAsState()
@@ -205,11 +204,8 @@ fun ProfileScreen(
                 MenuRow(
                     icon = Icons.Default.Settings,
                     title = "设置",
-                    subtitle = "通知、相机与展示偏好",
-                    onClick = {
-                        infoDialogTitle = "设置"
-                        infoDialogMessage = "当前预置了通知、相机与 UI 展示位，后续可继续扩展为完整设置页。"
-                    }
+                    subtitle = "备份数据、检查更新与偏好设置",
+                    onClick = onOpenSettings
                 )
                 DividerSpacer()
                 MenuRow(
@@ -218,7 +214,7 @@ fun ProfileScreen(
                     subtitle = "常见问题与功能建议",
                     onClick = {
                         infoDialogTitle = "帮助与反馈"
-                        infoDialogMessage = "你可以通过这个预置入口集中管理使用说明、FAQ 和反馈渠道。"
+                        infoDialogMessage = "后续会补充常见问题、使用说明和反馈渠道。"
                     }
                 )
                 DividerSpacer()
@@ -234,7 +230,7 @@ fun ProfileScreen(
             }
 
             Text(
-                text = "心中有数，遇事不怵",
+                text = "心中有数，遇事不慌",
                 fontSize = 12.sp,
                 color = TextSecondary,
                 modifier = Modifier
@@ -248,7 +244,7 @@ fun ProfileScreen(
     if (showModelDialog) {
         AppDialog(
             title = "AI 模型管理",
-            subtitle = "预制入口已打通，可先维护模型别名、接口和 API Key。",
+            subtitle = "当前先维护模型别名、Provider、Endpoint 和 API Key。",
             onDismissRequest = { showModelDialog = false },
             confirmText = "新增模型",
             onConfirm = {
@@ -310,12 +306,16 @@ fun ProfileScreen(
     }
 
     if (showAddModelDialog) {
-        AppDialog(
-            title = "新增 AI 模型",
-            subtitle = "先把必要连接信息录入，后续再接真实调用。",
+        AiModelEditorDialog(
+            alias = newAlias,
+            provider = newProvider,
+            endpoint = newEndpoint,
+            apiKey = newApiKey,
+            onAliasChange = { newAlias = it },
+            onProviderChange = { newProvider = it },
+            onEndpointChange = { newEndpoint = it },
+            onApiKeyChange = { newApiKey = it },
             onDismissRequest = { showAddModelDialog = false },
-            confirmText = "保存",
-            confirmEnabled = newAlias.isNotBlank() && newProvider.isNotBlank() && newEndpoint.isNotBlank(),
             onConfirm = {
                 models.add(
                     AiModelItem(
@@ -327,43 +327,7 @@ fun ProfileScreen(
                 )
                 showAddModelDialog = false
             }
-        ) {
-            OutlinedTextField(
-                value = newAlias,
-                onValueChange = { newAlias = it },
-                singleLine = true,
-                label = { Text("模型别名") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedTextField(
-                value = newProvider,
-                onValueChange = { newProvider = it },
-                singleLine = true,
-                label = { Text("模型来源") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedTextField(
-                value = newEndpoint,
-                onValueChange = { newEndpoint = it },
-                singleLine = true,
-                label = { Text("接口地址") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedTextField(
-                value = newApiKey,
-                onValueChange = { newApiKey = it },
-                singleLine = true,
-                label = { Text("API Key") },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.Key,
-                        contentDescription = null,
-                        tint = TextHint
-                    )
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
+        )
     }
 
     if (infoDialogTitle != null && infoDialogMessage != null) {
@@ -466,7 +430,66 @@ private fun DividerSpacer() {
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 3.dp)
-            .height(1.dp)
             .background(Color(0xFFF1EEF7))
+            .height(1.dp)
     )
+}
+
+@Composable
+private fun AiModelEditorDialog(
+    alias: String,
+    provider: String,
+    endpoint: String,
+    apiKey: String,
+    onAliasChange: (String) -> Unit,
+    onProviderChange: (String) -> Unit,
+    onEndpointChange: (String) -> Unit,
+    onApiKeyChange: (String) -> Unit,
+    onDismissRequest: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AppDialog(
+        title = "新增 AI 模型",
+        subtitle = "先把必要连接信息录入，后续再接真实调用。",
+        onDismissRequest = onDismissRequest,
+        confirmText = "保存",
+        confirmEnabled = alias.isNotBlank() && provider.isNotBlank() && endpoint.isNotBlank(),
+        onConfirm = onConfirm
+    ) {
+        OutlinedTextField(
+            value = alias,
+            onValueChange = onAliasChange,
+            singleLine = true,
+            label = { Text("模型别名") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        OutlinedTextField(
+            value = provider,
+            onValueChange = onProviderChange,
+            singleLine = true,
+            label = { Text("模型来源") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        OutlinedTextField(
+            value = endpoint,
+            onValueChange = onEndpointChange,
+            singleLine = true,
+            label = { Text("接口地址") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        OutlinedTextField(
+            value = apiKey,
+            onValueChange = onApiKeyChange,
+            singleLine = true,
+            label = { Text("API Key") },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Default.Key,
+                    contentDescription = null,
+                    tint = TextHint
+                )
+            },
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
 }

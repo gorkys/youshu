@@ -24,6 +24,9 @@ interface LocationDao {
     @Query("SELECT * FROM locations WHERE id = :id")
     suspend fun getLocationById(id: Long): Location?
 
+    @Query("SELECT * FROM locations ORDER BY id ASC")
+    suspend fun getAllLocationsSnapshot(): List<Location>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(location: Location): Long
 
@@ -35,4 +38,7 @@ interface LocationDao {
 
     @Query("SELECT COUNT(*) FROM locations")
     suspend fun getCount(): Int
+
+    @Query("DELETE FROM locations")
+    suspend fun deleteAll()
 }

@@ -7,6 +7,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -32,10 +34,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeDefaults
+import dev.chrisbanes.haze.hazeChild
 import com.youshu.app.ui.theme.Background
 import com.youshu.app.ui.theme.CardWhite
 import com.youshu.app.ui.theme.DividerSoft
-import com.youshu.app.ui.theme.GlassWhite
 import com.youshu.app.ui.theme.OrangeGlow
 import com.youshu.app.ui.theme.OrangeLight
 import com.youshu.app.ui.theme.OrangeStart
@@ -148,25 +152,56 @@ fun AppSurfaceCard(
 @Composable
 fun GlassPanel(
     modifier: Modifier = Modifier,
+    hazeState: HazeState? = null,
     shape: Shape = RoundedCornerShape(28.dp),
     contentPadding: PaddingValues = PaddingValues(20.dp),
-    containerColor: Color = GlassWhite,
+    containerColor: Color = Color.White.copy(alpha = 0.18f),
     borderColor: Color = Color.White.copy(alpha = 0.8f),
     shadowElevation: Dp = 12.dp,
+    blurAlpha: Float = 0.55f,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    AppSurfaceCard(
-        modifier = modifier.border(
-            width = 1.dp,
-            color = borderColor,
-            shape = shape
-        ),
-        shape = shape,
-        containerColor = containerColor,
-        shadowElevation = shadowElevation,
-        contentPadding = contentPadding,
-        content = content
-    )
+    val glassTint = containerColor.copy(alpha = 0.06f + (blurAlpha.coerceIn(0f, 1f) * 0.05f))
+    Box(
+        modifier = modifier
+            .shadow(
+                elevation = shadowElevation,
+                shape = shape,
+                ambientColor = OrangeStart.copy(alpha = 0.08f),
+                spotColor = Color.Black.copy(alpha = 0.08f)
+            )
+            .clip(shape)
+            .then(
+                if (hazeState == null) {
+                    Modifier.background(containerColor)
+                } else {
+                    Modifier.hazeChild(
+                        state = hazeState,
+                        style = HazeDefaults.style(
+                            backgroundColor = Color.Transparent,
+                            tint = HazeDefaults.tint(glassTint),
+                            blurRadius = 36.dp,
+                            noiseFactor = 0f
+                        )
+                    ) {
+                        blurEnabled = true
+                        alpha = 0.98f
+                    }
+                }
+            )
+            .border(
+                width = 1.dp,
+                color = borderColor,
+                shape = shape
+            )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(contentPadding),
+            content = content
+        )
+    }
 }
 
 @Composable

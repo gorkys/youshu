@@ -1,6 +1,8 @@
 package com.youshu.app.ui.screen.save
 
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
@@ -16,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -30,12 +33,9 @@ import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -46,7 +46,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -57,26 +56,28 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.youshu.app.ui.components.AppDialog
+import com.youshu.app.ui.components.ExpiryPickerDialog
 import com.youshu.app.ui.components.AppSurfaceCard
 import com.youshu.app.ui.components.EditorInputBox
 import com.youshu.app.ui.components.EditorSectionLabel
 import com.youshu.app.ui.components.EditorSelectionChip
 import com.youshu.app.ui.components.GradientButton
+import com.youshu.app.ui.components.ItemImageGallery
 import com.youshu.app.ui.components.QuantityStepper
 import com.youshu.app.ui.theme.TextHint
-import com.youshu.app.ui.theme.TextPrimary
 import com.youshu.app.ui.theme.TextSecondary
 import com.youshu.app.ui.viewmodel.SaveViewModel
 import com.youshu.app.util.DateUtil
 
 private data class ExpiryQuickOption(val label: String, val timestamp: Long)
 
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SaveScreen(
-    imageUri: Uri,
+    imageUri: Uri?,
     onBack: () -> Unit,
     onSaved: () -> Unit,
+    onOpenCamera: (mode: SavePhotoMode) -> Unit,
     viewModel: SaveViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -85,9 +86,14 @@ fun SaveScreen(
     val locations by viewModel.locations.collectAsState()
     val leafLocations = locations.filter { it.parentId != null }
 
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetMultipleContents()
+    ) { uris ->
+        viewModel.appendPhotos(context, uris)
+    }
+
     var showAdvanced by remember { mutableStateOf(true) }
     var showDatePicker by remember { mutableStateOf(false) }
-    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = state.expireTime)
     val expiryQuickOptions = remember {
         listOf(
             ExpiryQuickOption("7天", DateUtil.daysFromNow(7)),
@@ -110,15 +116,17 @@ fun SaveScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        AsyncImage(
-            model = imageUri,
-            contentDescription = null,
-            modifier = Modifier
-                .fillMaxSize()
-                .blur(28.dp),
-            contentScale = ContentScale.Crop,
-            alpha = 0.34f
-        )
+        if (state.imagePaths.isNotEmpty()) {
+            AsyncImage(
+                model = state.imagePaths.first(),
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .blur(28.dp),
+                contentScale = ContentScale.Crop,
+                alpha = 0.34f
+            )
+        }
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -138,6 +146,7 @@ fun SaveScreen(
                 .fillMaxSize()
                 .statusBarsPadding()
                 .navigationBarsPadding()
+                .imePadding()
         ) {
             Row(
                 modifier = Modifier
@@ -178,25 +187,22 @@ fun SaveScreen(
                         modifier = Modifier
                             .fillMaxSize()
                             .verticalScroll(rememberScrollState())
-                            .padding(bottom = 96.dp)
+                            .imePadding()
+                            .padding(bottom = 120.dp)
                     ) {
                         Box(
                             modifier = Modifier
                                 .align(Alignment.CenterHorizontally)
                                 .size(width = 42.dp, height = 4.dp)
-                                .clip(RoundedCornerShape(999.dp))
-                                .background(Color(0xFFE5DFEC))
+                                .background(Color(0xFFE5DFEC), RoundedCornerShape(999.dp))
                         )
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        AsyncImage(
-                            model = imageUri,
-                            contentDescription = "图片预览",
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(188.dp)
-                                .clip(RoundedCornerShape(24.dp)),
-                            contentScale = ContentScale.Crop
+                        ItemImageGallery(
+                            imagePaths = state.imagePaths,
+                            onAddPhoto = { galleryLauncher.launch("image/*") },
+                            onRetakePrimary = { onOpenCamera(SavePhotoMode.REPLACE_PRIMARY) },
+                            onRemoveImage = viewModel::removePhoto
                         )
 
                         Spacer(modifier = Modifier.height(18.dp))
@@ -344,7 +350,7 @@ fun SaveScreen(
                 }
 
                 GradientButton(
-                    text = if (state.isSaving) "保存中…" else "保存",
+                    text = if (state.isSaving) "保存中..." else "保存",
                     onClick = viewModel::save,
                     enabled = state.name.isNotBlank() && !state.isSaving,
                     modifier = Modifier
@@ -356,23 +362,23 @@ fun SaveScreen(
         }
 
         if (showDatePicker) {
-            AppDialog(
-                title = "选择有效期",
-                subtitle = "可以切换月份快速定位，也可以使用上面的快捷按钮。",
+            ExpiryPickerDialog(
+                selectedDateMillis = state.expireTime,
                 onDismissRequest = { showDatePicker = false },
-                confirmText = "确定",
-                secondaryText = "清空",
-                onSecondary = {
+                onClear = {
                     viewModel.updateExpireTime(null)
                     showDatePicker = false
                 },
-                onConfirm = {
-                    viewModel.updateExpireTime(datePickerState.selectedDateMillis)
+                onConfirm = { selectedMillis ->
+                    viewModel.updateExpireTime(selectedMillis)
                     showDatePicker = false
                 }
-            ) {
-                DatePicker(state = datePickerState)
-            }
+            )
         }
     }
+}
+
+enum class SavePhotoMode {
+    APPEND,
+    REPLACE_PRIMARY
 }

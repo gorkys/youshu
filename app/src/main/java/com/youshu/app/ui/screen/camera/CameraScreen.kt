@@ -6,7 +6,9 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
@@ -15,6 +17,7 @@ import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +27,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -42,6 +46,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -50,27 +55,36 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import java.io.File
+import java.util.concurrent.TimeUnit
 
 @Composable
 fun CameraScreen(
     onBack: () -> Unit,
     onDisposed: () -> Unit = {},
+    onSkipPhoto: () -> Unit = {},
     onPhotoTaken: (Uri) -> Unit
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val density = LocalDensity.current
 
     var hasCameraPermission by remember { mutableStateOf(false) }
     var imageCapture by remember { mutableStateOf<ImageCapture?>(null) }
     var cameraProvider by remember { mutableStateOf<ProcessCameraProvider?>(null) }
+    var previewView by remember { mutableStateOf<PreviewView?>(null) }
+    var camera by remember { mutableStateOf<Camera?>(null) }
     var flashEnabled by remember { mutableStateOf(false) }
+    var focusMarker by remember { mutableStateOf<Pair<Float, Float>?>(null) }
+    var focusMarkerStamp by remember { mutableLongStateOf(0L) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -99,6 +113,12 @@ fun CameraScreen(
         }
     }
 
+    LaunchedEffect(focusMarkerStamp) {
+        if (focusMarkerStamp == 0L) return@LaunchedEffect
+        kotlinx.coroutines.delay(900)
+        focusMarker = null
+    }
+
     DisposableEffect(Unit) {
         onDispose {
             cameraProvider?.unbindAll()
@@ -114,36 +134,66 @@ fun CameraScreen(
         if (hasCameraPermission) {
             AndroidView(
                 factory = { ctx ->
-                    val previewView = PreviewView(ctx)
-                    val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+                    PreviewView(ctx).also { createdPreviewView ->
+                        previewView = createdPreviewView
+                        val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
 
-                    cameraProviderFuture.addListener({
-                        val provider = cameraProviderFuture.get()
-                        cameraProvider = provider
-                        val preview = Preview.Builder().build().also {
-                            it.surfaceProvider = previewView.surfaceProvider
-                        }
-                        val capture = ImageCapture.Builder()
-                            .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
-                            .build()
-                        imageCapture = capture
+                        cameraProviderFuture.addListener({
+                            val provider = cameraProviderFuture.get()
+                            cameraProvider = provider
+                            val preview = Preview.Builder().build().also {
+                                it.surfaceProvider = createdPreviewView.surfaceProvider
+                            }
+                            val capture = ImageCapture.Builder()
+                                .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+                                .build()
+                            imageCapture = capture
 
-                        try {
-                            provider.unbindAll()
-                            provider.bindToLifecycle(
-                                lifecycleOwner,
-                                CameraSelector.DEFAULT_BACK_CAMERA,
-                                preview,
-                                capture
-                            )
-                        } catch (_: Exception) {
-                        }
-                    }, ContextCompat.getMainExecutor(ctx))
-
-                    previewView
+                            try {
+                                provider.unbindAll()
+                                camera = provider.bindToLifecycle(
+                                    lifecycleOwner,
+                                    CameraSelector.DEFAULT_BACK_CAMERA,
+                                    preview,
+                                    capture
+                                )
+                            } catch (_: Exception) {
+                            }
+                        }, ContextCompat.getMainExecutor(ctx))
+                    }
                 },
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(camera, previewView) {
+                        detectTapGestures { offset ->
+                            val view = previewView ?: return@detectTapGestures
+                            val cameraInstance = camera ?: return@detectTapGestures
+                            val meteringPoint = view.meteringPointFactory.createPoint(offset.x, offset.y)
+                            val action = FocusMeteringAction.Builder(
+                                meteringPoint,
+                                FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE
+                            )
+                                .setAutoCancelDuration(3, TimeUnit.SECONDS)
+                                .build()
+                            cameraInstance.cameraControl.startFocusAndMetering(action)
+                            focusMarker = offset.x to offset.y
+                            focusMarkerStamp = System.currentTimeMillis()
+                        }
+                    }
             )
+
+            focusMarker?.let { (x, y) ->
+                val markerSize = with(density) { 72.dp.toPx() }
+                Box(
+                    modifier = Modifier
+                        .offset(
+                            x = with(density) { (x - markerSize / 2).toDp() },
+                            y = with(density) { (y - markerSize / 2).toDp() }
+                        )
+                        .size(72.dp)
+                        .border(2.dp, Color.White.copy(alpha = 0.92f), RoundedCornerShape(20.dp))
+                )
+            }
 
             Box(
                 modifier = Modifier
@@ -179,65 +229,87 @@ fun CameraScreen(
                         tint = Color.White
                     )
                 }
-                Spacer(modifier = Modifier.size(48.dp))
-            }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
-                    .navigationBarsPadding()
-                    .padding(horizontal = 28.dp, vertical = 22.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
                 Box(
                     modifier = Modifier
-                        .size(52.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(Color.White.copy(alpha = 0.18f))
-                        .clickable { galleryLauncher.launch("image/*") },
-                    contentAlignment = Alignment.Center
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(Color.White.copy(alpha = 0.16f))
+                        .clickable(onClick = onSkipPhoto)
+                        .padding(horizontal = 12.dp, vertical = 10.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.PhotoLibrary,
-                        contentDescription = "相册",
-                        tint = Color.White
+                    Text(
+                        text = "跳过图片",
+                        color = Color.White,
+                        fontSize = 12.sp
                     )
                 }
+            }
 
-                Box(
-                    modifier = Modifier
-                        .size(82.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.22f))
-                        .border(2.dp, Color.White.copy(alpha = 0.8f), CircleShape)
-                        .clickable {
-                            takePhoto(context, imageCapture) { uri ->
-                                onPhotoTaken(uri)
-                            }
-                        },
-                    contentAlignment = Alignment.Center
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(horizontal = 28.dp, vertical = 22.dp)
+            ) {
+                Text(
+                    text = "轻触画面可对焦",
+                    color = Color.White.copy(alpha = 0.82f),
+                    fontSize = 12.sp,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(64.dp)
-                            .clip(CircleShape)
-                            .background(Color.White)
-                    )
-                }
+                            .size(52.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Color.White.copy(alpha = 0.18f))
+                            .clickable { galleryLauncher.launch("image/*") },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PhotoLibrary,
+                            contentDescription = "相册",
+                            tint = Color.White
+                        )
+                    }
 
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = "多拍",
-                        color = Color.White,
-                        fontSize = 14.sp
-                    )
-                    Text(
-                        text = "连续录入更高效",
-                        color = Color.White.copy(alpha = 0.72f),
-                        fontSize = 10.sp
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(82.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.22f))
+                            .border(2.dp, Color.White.copy(alpha = 0.8f), CircleShape)
+                            .clickable {
+                                takePhoto(context, imageCapture) { uri ->
+                                    onPhotoTaken(uri)
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(CircleShape)
+                                .background(Color.White)
+                        )
+                    }
+
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "多拍",
+                            color = Color.White,
+                            fontSize = 14.sp
+                        )
+                        Text(
+                            text = "连续录入更高效",
+                            color = Color.White.copy(alpha = 0.72f),
+                            fontSize = 10.sp
+                        )
+                    }
                 }
             }
         } else {

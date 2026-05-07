@@ -1,5 +1,7 @@
 package com.youshu.app.ui.viewmodel
 
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.youshu.app.data.local.entity.Category
@@ -8,6 +10,7 @@ import com.youshu.app.data.local.entity.Location
 import com.youshu.app.data.repository.CategoryRepository
 import com.youshu.app.data.repository.ItemRepository
 import com.youshu.app.data.repository.LocationRepository
+import com.youshu.app.util.ImageUtil
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -27,7 +30,7 @@ data class EditItemState(
     val price: String = "",
     val expireTime: Long? = null,
     val note: String = "",
-    val imagePath: String = "",
+    val imagePaths: List<String> = emptyList(),
     val rating: Int? = null,
     val ratedAt: Long? = null,
     val status: Int = Item.STATUS_IN_USE,
@@ -66,13 +69,42 @@ class EditViewModel @Inject constructor(
                 price = item.price?.toString() ?: "",
                 expireTime = item.expireTime,
                 note = item.note,
-                imagePath = item.imagePath,
+                imagePaths = item.imagePathList(),
                 rating = item.rating,
                 ratedAt = item.ratedAt,
                 status = item.status,
                 isLoaded = true
             )
         }
+    }
+
+    fun appendPhotos(context: Context, uris: List<Uri>) {
+        if (uris.isEmpty()) return
+        val savedPaths = uris.mapNotNull { ImageUtil.saveImageToInternal(context, it) }
+        if (savedPaths.isEmpty()) return
+        _state.value = _state.value.copy(
+            imagePaths = (_state.value.imagePaths + savedPaths).distinct()
+        )
+    }
+
+    fun replacePrimaryPhoto(context: Context, uri: Uri) {
+        val savedPath = ImageUtil.saveImageToInternal(context, uri) ?: return
+        val currentPaths = _state.value.imagePaths.toMutableList()
+        currentPaths.firstOrNull()?.let(ImageUtil::deleteImage)
+        if (currentPaths.isEmpty()) {
+            currentPaths += savedPath
+        } else {
+            currentPaths[0] = savedPath
+        }
+        _state.value = _state.value.copy(imagePaths = currentPaths.distinct())
+    }
+
+    fun removePhoto(index: Int) {
+        val currentPaths = _state.value.imagePaths.toMutableList()
+        val removed = currentPaths.getOrNull(index) ?: return
+        currentPaths.removeAt(index)
+        ImageUtil.deleteImage(removed)
+        _state.value = _state.value.copy(imagePaths = currentPaths)
     }
 
     fun updateName(name: String) {
@@ -110,6 +142,7 @@ class EditViewModel @Inject constructor(
         _state.value = current.copy(isSaving = true)
         viewModelScope.launch {
             val original = itemRepository.getItemById(current.itemId)
+            val normalizedImages = current.imagePaths.distinct()
             val item = Item(
                 id = current.itemId,
                 name = current.name,
@@ -122,8 +155,10 @@ class EditViewModel @Inject constructor(
                 status = current.status,
                 rating = current.rating,
                 ratedAt = current.ratedAt,
+                deletedAt = original?.deletedAt,
                 note = current.note,
-                imagePath = current.imagePath,
+                imagePath = normalizedImages.firstOrNull().orEmpty(),
+                imagePaths = Item.encodeImagePaths(normalizedImages),
                 createdAt = original?.createdAt ?: System.currentTimeMillis()
             )
             itemRepository.update(item)

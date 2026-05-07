@@ -27,8 +27,9 @@ import androidx.compose.material.icons.automirrored.filled.StickyNote2
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Checkroom
-import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Devices
+import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Fastfood
@@ -71,15 +72,21 @@ import com.youshu.app.ui.theme.TextPrimary
 import com.youshu.app.ui.theme.TextSecondary
 import com.youshu.app.ui.viewmodel.CategoryViewModel
 
-private val categoryIcons = mapOf(
-    "食品" to Icons.Default.Fastfood,
-    "药品" to Icons.Default.MedicalServices,
-    "日用品" to Icons.Default.Home,
-    "数码" to Icons.Default.Devices,
-    "衣物" to Icons.Default.Checkroom,
-    "文具" to Icons.AutoMirrored.Filled.StickyNote2,
-    "工具" to Icons.Default.Handyman,
-    "其他" to Icons.Default.Apps
+private data class CategoryIconOption(
+    val key: String,
+    val label: String,
+    val icon: ImageVector
+)
+
+private val categoryIconOptions = listOf(
+    CategoryIconOption("food", "食品", Icons.Default.Fastfood),
+    CategoryIconOption("medicine", "药品", Icons.Default.MedicalServices),
+    CategoryIconOption("home", "家居", Icons.Default.Home),
+    CategoryIconOption("digital", "数码", Icons.Default.Devices),
+    CategoryIconOption("clothes", "衣物", Icons.Default.Checkroom),
+    CategoryIconOption("stationery", "文具", Icons.AutoMirrored.Filled.StickyNote2),
+    CategoryIconOption("tool", "工具", Icons.Default.Handyman),
+    CategoryIconOption("other", "其它", Icons.Default.Apps)
 )
 
 @Composable
@@ -97,9 +104,11 @@ fun CategoryScreen(
 
     var selectedTab by remember { mutableIntStateOf(0) }
     val expandedLocations = remember { mutableStateMapOf<Long, Boolean>() }
-    var showAddDialog by remember { mutableStateOf(false) }
+    var showCategoryDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var inputName by remember { mutableStateOf("") }
+    var selectedIconKey by remember { mutableStateOf(categoryIconOptions.first().key) }
+    var isEditingCategory by remember { mutableStateOf(false) }
 
     val locationDescendants = remember(allLocations) { buildLocationDescendants(allLocations) }
     val categoryCounts = remember(categories, activeItems) {
@@ -171,11 +180,19 @@ fun CategoryScreen(
                     modifier = Modifier.weight(1f)
                 )
                 MiniActionButton(
-                    icon = Icons.Default.Add,
-                    contentDescription = "新增",
+                    icon = if (selectedTab == 0 && selectedCategoryId != null) Icons.Default.Edit else Icons.Default.Add,
+                    contentDescription = if (selectedTab == 0 && selectedCategoryId != null) "编辑" else "新增",
                     onClick = {
-                        inputName = ""
-                        showAddDialog = true
+                        if (selectedTab == 0 && selectedCategory != null) {
+                            inputName = selectedCategory.name
+                            selectedIconKey = selectedCategory.icon.ifBlank { categoryIconOptions.first().key }
+                            isEditingCategory = true
+                        } else {
+                            inputName = ""
+                            selectedIconKey = categoryIconOptions.first().key
+                            isEditingCategory = false
+                        }
+                        showCategoryDialog = true
                     }
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -243,11 +260,10 @@ fun CategoryScreen(
                                 EmptyState(
                                     title = "先选择一个分组",
                                     message = if (selectedTab == 0) {
-                                        "选择分类后，这里会展示该分类下的全部物品。"
+                                        "选择分类后，这里会显示该分类下的全部物品。"
                                     } else {
-                                        "选择位置后，这里会展示该位置及子位置中的物品。"
-                                    },
-                                    modifier = Modifier.padding(bottom = 12.dp)
+                                        "选择位置后，这里会显示该位置及子位置中的物品。"
+                                    }
                                 )
                             }
                         }
@@ -259,8 +275,7 @@ fun CategoryScreen(
                             ) {
                                 EmptyState(
                                     title = "这里还是空的",
-                                    message = "当前分组下还没有录入物品。",
-                                    modifier = Modifier.padding(bottom = 12.dp)
+                                    message = "当前分组下还没有录入物品。"
                                 )
                             }
                         }
@@ -285,35 +300,44 @@ fun CategoryScreen(
         }
     }
 
-    if (showAddDialog) {
-        AppDialog(
-            title = if (selectedTab == 0) "新增分类" else "新增位置",
-            subtitle = if (selectedTab == 0) {
-                "新增后会立刻出现在列表中。"
-            } else {
-                "如果当前已选中某个位置，则会新增到该位置下面。"
-            },
-            onDismissRequest = { showAddDialog = false },
-            confirmText = "添加",
-            confirmEnabled = inputName.isNotBlank(),
-            onConfirm = {
-                if (selectedTab == 0) {
-                    viewModel.addCategory(inputName)
-                } else {
-                    viewModel.addLocation(inputName, selectedLocationId)
+    if (showCategoryDialog) {
+        if (selectedTab == 0) {
+            CategoryEditorDialog(
+                title = if (isEditingCategory) "编辑分类" else "新增分类",
+                inputName = inputName,
+                selectedIconKey = selectedIconKey,
+                onNameChange = { inputName = it },
+                onIconSelect = { selectedIconKey = it },
+                onDismissRequest = { showCategoryDialog = false },
+                onConfirm = {
+                    if (isEditingCategory) {
+                        viewModel.updateCategory(selectedCategoryId, inputName, selectedIconKey)
+                    } else {
+                        viewModel.addCategory(inputName, selectedIconKey)
+                    }
+                    showCategoryDialog = false
                 }
-                showAddDialog = false
-            }
-        ) {
-            OutlinedTextField(
-                value = inputName,
-                onValueChange = { inputName = it },
-                singleLine = true,
-                label = {
-                    Text(if (selectedTab == 0) "分类名称" else "位置名称")
-                },
-                modifier = Modifier.fillMaxWidth()
             )
+        } else {
+            AppDialog(
+                title = "新增位置",
+                subtitle = "如果当前已选中某个位置，则会新增到该位置下面。",
+                onDismissRequest = { showCategoryDialog = false },
+                confirmText = "添加",
+                confirmEnabled = inputName.isNotBlank(),
+                onConfirm = {
+                    viewModel.addLocation(inputName, selectedLocationId)
+                    showCategoryDialog = false
+                }
+            ) {
+                OutlinedTextField(
+                    value = inputName,
+                    onValueChange = { inputName = it },
+                    singleLine = true,
+                    label = { Text("位置名称") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
     }
 
@@ -335,10 +359,92 @@ fun CategoryScreen(
             }
         ) {
             Text(
-                text = "确定要删除「${deleteName.orEmpty()}」吗？",
+                text = "确定要删除“${deleteName.orEmpty()}”吗？",
                 fontSize = 14.sp,
                 color = TextSecondary
             )
+        }
+    }
+}
+
+@Composable
+private fun CategoryEditorDialog(
+    title: String,
+    inputName: String,
+    selectedIconKey: String,
+    onNameChange: (String) -> Unit,
+    onIconSelect: (String) -> Unit,
+    onDismissRequest: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AppDialog(
+        title = title,
+        subtitle = "预制类别支持修改名称，并可切换对应图标。",
+        onDismissRequest = onDismissRequest,
+        confirmText = "保存",
+        confirmEnabled = inputName.isNotBlank(),
+        onConfirm = onConfirm
+    ) {
+        OutlinedTextField(
+            value = inputName,
+            onValueChange = onNameChange,
+            singleLine = true,
+            label = { Text("分类名称") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            text = "选择图标",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+            color = TextSecondary
+        )
+        LazyColumn(
+            modifier = Modifier.height(220.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(categoryIconOptions, key = { it.key }) { option ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(
+                            if (selectedIconKey == option.key) OrangeStart.copy(alpha = 0.1f)
+                            else Color(0xFFF8F6FC)
+                        )
+                        .clickable { onIconSelect(option.key) }
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(Color.White),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = option.icon,
+                            contentDescription = null,
+                            tint = OrangeStart
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = option.label,
+                        modifier = Modifier.weight(1f),
+                        color = TextPrimary,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    if (selectedIconKey == option.key) {
+                        Text(
+                            text = "已选",
+                            color = OrangeStart,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -447,7 +553,7 @@ private fun CategoryRow(
     selected: Boolean,
     onClick: () -> Unit
 ) {
-    val icon = categoryIcons[category.name] ?: Icons.Default.Apps
+    val icon = categoryIconOptions.firstOrNull { it.key == category.icon }?.icon ?: Icons.Default.Apps
     Row(
         modifier = Modifier
             .fillMaxWidth()

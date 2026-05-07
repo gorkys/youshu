@@ -101,6 +101,8 @@ private class FakeItemDao(
 
     override suspend fun getItemById(id: Long): Item? = items.firstOrNull { it.id == id && it.deletedAt == null }
 
+    override suspend fun getAllItemsSnapshot(): List<Item> = snapshot()
+
     override suspend fun insert(item: Item): Long {
         items += item
         return item.id
@@ -178,6 +180,10 @@ private class FakeItemDao(
     override suspend fun deleteDeletedItemsByIds(ids: List<Long>) {
         val idSet = ids.toSet()
         items.removeAll { it.id in idSet && it.deletedAt != null }
+    }
+
+    override suspend fun deleteAll() {
+        items.clear()
     }
 
     override fun getExpiringItemsInRange(currentTime: Long, thresholdTime: Long): Flow<List<ItemDetail>> =

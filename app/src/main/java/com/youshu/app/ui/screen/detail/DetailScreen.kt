@@ -165,9 +165,10 @@ fun DetailScreen(
                     modifier = Modifier.fillMaxSize()
                 ) { page ->
                     val pageItem = pagerItems[page].item
-                    if (pageItem.imagePath.isNotEmpty()) {
+                    val primaryImagePath = pageItem.primaryImagePath()
+                    if (primaryImagePath.isNotEmpty()) {
                         AsyncImage(
-                            model = pageItem.imagePath,
+                            model = primaryImagePath,
                             contentDescription = pageItem.name,
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop

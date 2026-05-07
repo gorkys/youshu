@@ -18,9 +18,16 @@ class LocationRepository @Inject constructor(
 
     suspend fun getLocationById(id: Long): Location? = locationDao.getLocationById(id)
 
+    suspend fun getAllLocationsSnapshot(): List<Location> = locationDao.getAllLocationsSnapshot()
+
     suspend fun insert(location: Location): Long = locationDao.insert(location)
 
     suspend fun update(location: Location) = locationDao.update(location)
 
     suspend fun delete(location: Location) = locationDao.delete(location)
+
+    suspend fun replaceAll(locations: List<Location>) {
+        locationDao.deleteAll()
+        locations.forEach { locationDao.insert(it) }
+    }
 }

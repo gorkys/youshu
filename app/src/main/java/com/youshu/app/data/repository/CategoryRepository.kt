@@ -14,9 +14,16 @@ class CategoryRepository @Inject constructor(
 
     suspend fun getCategoryById(id: Long): Category? = categoryDao.getCategoryById(id)
 
+    suspend fun getAllCategoriesSnapshot(): List<Category> = categoryDao.getAllCategoriesSnapshot()
+
     suspend fun insert(category: Category): Long = categoryDao.insert(category)
 
     suspend fun update(category: Category) = categoryDao.update(category)
 
     suspend fun delete(category: Category) = categoryDao.delete(category)
+
+    suspend fun replaceAll(categories: List<Category>) {
+        categoryDao.deleteAll()
+        categories.forEach { categoryDao.insert(it) }
+    }
 }

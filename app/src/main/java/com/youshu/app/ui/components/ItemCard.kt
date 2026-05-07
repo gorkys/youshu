@@ -49,6 +49,7 @@ fun ItemCard(
     modifier: Modifier = Modifier
 ) {
     val item = itemDetail.item
+    val primaryImagePath = item.primaryImagePath()
 
     AppSurfaceCard(
         modifier = modifier,
@@ -60,9 +61,9 @@ fun ItemCard(
         Row(
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (item.imagePath.isNotEmpty()) {
+            if (primaryImagePath.isNotEmpty()) {
                 AsyncImage(
-                    model = item.imagePath,
+                    model = primaryImagePath,
                     contentDescription = item.name,
                     modifier = Modifier
                         .size(62.dp)

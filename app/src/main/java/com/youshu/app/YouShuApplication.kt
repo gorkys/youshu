@@ -32,9 +32,7 @@ class YouShuApplication : Application(), Configuration.Provider {
         applicationScope.launch {
             val cutoffTime = System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000
             itemRepository.purgeDeletedItemsOlderThan(cutoffTime).forEach { item ->
-                if (item.imagePath.isNotBlank()) {
-                    ImageUtil.deleteImage(item.imagePath)
-                }
+                item.imagePathList().forEach(ImageUtil::deleteImage)
             }
         }
     }

@@ -72,11 +72,22 @@ class CategoryViewModel @Inject constructor(
         _selectedCategoryId.value = null
     }
 
-    fun addCategory(name: String) {
+    fun addCategory(name: String, icon: String = "") {
         val normalized = name.trim()
         if (normalized.isBlank()) return
         viewModelScope.launch {
-            categoryRepository.insert(Category(name = normalized))
+            categoryRepository.insert(Category(name = normalized, icon = icon))
+        }
+    }
+
+    fun updateCategory(categoryId: Long?, name: String, icon: String) {
+        val id = categoryId ?: return
+        val normalized = name.trim()
+        if (normalized.isBlank()) return
+        viewModelScope.launch {
+            categories.value.firstOrNull { it.id == id }?.let { category ->
+                categoryRepository.update(category.copy(name = normalized, icon = icon))
+            }
         }
     }
 

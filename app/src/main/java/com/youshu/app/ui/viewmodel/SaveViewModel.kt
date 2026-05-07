@@ -29,7 +29,7 @@ data class SaveItemState(
     val price: String = "",
     val expireTime: Long? = null,
     val note: String = "",
-    val imagePath: String = "",
+    val imagePaths: List<String> = emptyList(),
     val isSaving: Boolean = false,
     val isSaved: Boolean = false
 )
@@ -50,22 +50,51 @@ class SaveViewModel @Inject constructor(
     val locations: StateFlow<List<Location>> = locationRepository.getAllLocations()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun initFromPhoto(context: Context, imageUri: Uri, aiName: String?, aiCategory: String?) {
+    fun initFromPhoto(context: Context, imageUri: Uri?, aiName: String?, aiCategory: String?) {
         val current = _state.value
-        if (current.imagePath.isNotEmpty()) return
+        if (imageUri == null || current.imagePaths.isNotEmpty()) return
 
         val savedPath = ImageUtil.saveImageToInternal(context, imageUri)
         _state.value = current.copy(
             name = aiName ?: "",
-            imagePath = savedPath ?: ""
+            imagePaths = savedPath?.let(::listOf).orEmpty()
         )
         if (aiCategory != null) {
             viewModelScope.launch {
-                categories.value.find { it.name == aiCategory }?.let {
-                    _state.value = _state.value.copy(categoryId = it.id)
+                categories.value.find { it.name == aiCategory }?.let { category ->
+                    _state.value = _state.value.copy(categoryId = category.id)
                 }
             }
         }
+    }
+
+    fun appendPhotos(context: Context, uris: List<Uri>) {
+        if (uris.isEmpty()) return
+        val savedPaths = uris.mapNotNull { ImageUtil.saveImageToInternal(context, it) }
+        if (savedPaths.isEmpty()) return
+        _state.value = _state.value.copy(
+            imagePaths = (_state.value.imagePaths + savedPaths).distinct()
+        )
+    }
+
+    fun replacePrimaryPhoto(context: Context, uri: Uri) {
+        val savedPath = ImageUtil.saveImageToInternal(context, uri) ?: return
+        val currentPaths = _state.value.imagePaths.toMutableList()
+        currentPaths.firstOrNull()?.let(ImageUtil::deleteImage)
+        if (currentPaths.isEmpty()) {
+            currentPaths += savedPath
+        } else {
+            currentPaths[0] = savedPath
+        }
+        _state.value = _state.value.copy(imagePaths = currentPaths.distinct())
+    }
+
+    fun removePhoto(index: Int) {
+        val currentPaths = _state.value.imagePaths.toMutableList()
+        val removed = currentPaths.getOrNull(index) ?: return
+        currentPaths.removeAt(index)
+        ImageUtil.deleteImage(removed)
+        _state.value = _state.value.copy(imagePaths = currentPaths)
     }
 
     fun updateName(name: String) {
@@ -106,6 +135,7 @@ class SaveViewModel @Inject constructor(
 
         _state.value = current.copy(isSaving = true)
         viewModelScope.launch {
+            val normalizedImages = current.imagePaths.distinct()
             val item = Item(
                 name = current.name,
                 categoryId = current.categoryId,
@@ -115,7 +145,8 @@ class SaveViewModel @Inject constructor(
                 price = current.price.toDoubleOrNull(),
                 expireTime = current.expireTime,
                 note = current.note,
-                imagePath = current.imagePath
+                imagePath = normalizedImages.firstOrNull().orEmpty(),
+                imagePaths = Item.encodeImagePaths(normalizedImages)
             )
             itemRepository.insert(item)
             _state.value = _state.value.copy(isSaving = false, isSaved = true)
