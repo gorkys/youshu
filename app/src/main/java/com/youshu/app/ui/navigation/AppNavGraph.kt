@@ -32,6 +32,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -87,6 +88,10 @@ private val bottomNavItems = listOf(
     BottomNavItem(Screen.Search.route, "库房", Icons.Filled.Search, Icons.Outlined.Search),
     BottomNavItem(Screen.Profile.route, "我的", Icons.Filled.Person, Icons.Outlined.Person)
 )
+
+internal const val EDIT_RESULT_IMAGE_URI = "edit_result_image_uri"
+internal const val EDIT_RESULT_IMAGE_URIS = "edit_result_image_uris"
+internal const val EDIT_RESULT_MODE = "edit_result_mode"
 
 @Composable
 fun AppNavGraph() {
@@ -161,9 +166,10 @@ fun AppNavGraph() {
                                 }
 
                                 is CameraReturnTarget.EditItem -> {
-                                    navController.navigate(Screen.Edit.createRoute(target.itemId)) {
-                                        popUpTo(Screen.Camera.route) { inclusive = true }
-                                    }
+                                    navController.previousBackStackEntry
+                                        ?.savedStateHandle
+                                        ?.set(EDIT_RESULT_MODE, target.mode.name.lowercase())
+                                    navController.popBackStack()
                                 }
                             }
                             pendingCameraReturn = null
@@ -179,16 +185,12 @@ fun AppNavGraph() {
                                 }
 
                                 is CameraReturnTarget.EditItem -> {
-                                    navController.navigate(
-                                        Screen.Edit.createRoute(
-                                            itemId = target.itemId,
-                                            imageUri = firstUri,
-                                            imageUris = encoded,
-                                            mode = target.mode.name.lowercase()
-                                        )
-                                    ) {
-                                        popUpTo(Screen.Camera.route) { inclusive = true }
+                                    navController.previousBackStackEntry?.savedStateHandle?.apply {
+                                        set(EDIT_RESULT_IMAGE_URI, firstUri)
+                                        set(EDIT_RESULT_IMAGE_URIS, encoded)
+                                        set(EDIT_RESULT_MODE, target.mode.name.lowercase())
                                     }
+                                    navController.popBackStack()
                                 }
 
                                 is CameraReturnTarget.SaveDraft -> {
@@ -329,6 +331,15 @@ fun AppNavGraph() {
                     val encodedUri = backStackEntry.arguments?.getString("imageUri").orEmpty()
                     val encodedUris = backStackEntry.arguments?.getString("imageUris").orEmpty()
                     val mode = backStackEntry.arguments?.getString("mode").orEmpty()
+                    val resultImageUri by backStackEntry.savedStateHandle
+                        .getStateFlow<String?>(EDIT_RESULT_IMAGE_URI, null)
+                        .collectAsState()
+                    val resultImageUris by backStackEntry.savedStateHandle
+                        .getStateFlow(EDIT_RESULT_IMAGE_URIS, emptyList<String>())
+                        .collectAsState()
+                    val resultMode by backStackEntry.savedStateHandle
+                        .getStateFlow<String?>(EDIT_RESULT_MODE, null)
+                        .collectAsState()
                     val uri = encodedUri.takeIf { it.isNotBlank() }?.let { Uri.parse(Uri.decode(it)) }
                     val uris = encodedUris
                         .split(",")
@@ -340,6 +351,14 @@ fun AppNavGraph() {
                         pendingImageUri = uri,
                         pendingImageUris = uris,
                         pendingPhotoMode = mode.toSavePhotoMode(),
+                        resultImageUri = resultImageUri?.let(Uri::parse),
+                        resultImageUris = resultImageUris.map(Uri::parse),
+                        resultPhotoMode = resultMode?.toSavePhotoMode(),
+                        onConsumePendingResult = {
+                            backStackEntry.savedStateHandle.remove<String>(EDIT_RESULT_IMAGE_URI)
+                            backStackEntry.savedStateHandle.remove<List<String>>(EDIT_RESULT_IMAGE_URIS)
+                            backStackEntry.savedStateHandle.remove<String>(EDIT_RESULT_MODE)
+                        },
                         onBack = { navController.popBackStack() },
                         onSaved = { navController.popBackStack() },
                         onOpenCamera = { photoMode ->

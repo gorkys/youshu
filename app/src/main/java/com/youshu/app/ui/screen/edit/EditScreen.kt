@@ -69,6 +69,10 @@ fun EditScreen(
     pendingImageUri: Uri?,
     pendingImageUris: List<Uri>,
     pendingPhotoMode: SavePhotoMode?,
+    resultImageUri: Uri?,
+    resultImageUris: List<Uri>,
+    resultPhotoMode: SavePhotoMode?,
+    onConsumePendingResult: () -> Unit,
     onBack: () -> Unit,
     onSaved: () -> Unit,
     onOpenCamera: (SavePhotoMode) -> Unit,
@@ -109,6 +113,25 @@ fun EditScreen(
             pendingImageUri != null -> {
                 viewModel.appendPhotos(context, listOf(pendingImageUri))
             }
+        }
+    }
+
+    LaunchedEffect(resultImageUri, resultImageUris, resultPhotoMode) {
+        when {
+            resultPhotoMode == SavePhotoMode.REPLACE_PRIMARY && resultImageUri != null -> {
+                viewModel.replacePrimaryPhoto(context, resultImageUri)
+            }
+
+            resultImageUris.isNotEmpty() -> {
+                viewModel.appendPhotos(context, resultImageUris)
+            }
+
+            resultImageUri != null -> {
+                viewModel.appendPhotos(context, listOf(resultImageUri))
+            }
+        }
+        if (resultImageUri != null || resultImageUris.isNotEmpty() || resultPhotoMode != null) {
+            onConsumePendingResult()
         }
     }
 
