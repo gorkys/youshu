@@ -1,6 +1,7 @@
 package com.youshu.app.ui.screen.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,13 +19,17 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,6 +43,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.youshu.app.data.local.entity.Item
+import com.youshu.app.ui.components.AppDialog
 import com.youshu.app.ui.components.AppDecorativeBackground
 import com.youshu.app.ui.components.AppSurfaceCard
 import com.youshu.app.ui.components.EmptyState
@@ -45,6 +52,8 @@ import com.youshu.app.ui.components.ItemCard
 import com.youshu.app.ui.components.PillTag
 import com.youshu.app.ui.components.SearchBar
 import com.youshu.app.ui.components.SectionHeader
+import com.youshu.app.ui.components.SwipeActionSpec
+import com.youshu.app.ui.components.SwipeRevealItem
 import com.youshu.app.ui.theme.OrangeEnd
 import com.youshu.app.ui.theme.OrangeStart
 import com.youshu.app.ui.theme.StatusExpired
@@ -56,6 +65,7 @@ import com.youshu.app.ui.viewmodel.HomeViewModel
 @Composable
 fun HomeScreen(
     onNavigateToDetail: (Long) -> Unit,
+    onNavigateToEdit: (Long) -> Unit,
     onNavigateToLibrary: () -> Unit,
     onNavigateToSearchCenter: () -> Unit,
     onNavigateToExpiry: () -> Unit = {},
@@ -67,6 +77,8 @@ fun HomeScreen(
     val searchQuery by viewModel.searchQuery.collectAsState()
     val categories by viewModel.categories.collectAsState()
     var selectedCategoryId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var openedItemId by remember { mutableStateOf<Long?>(null) }
+    var pendingDeleteItem by remember { mutableStateOf<Item?>(null) }
 
     val filteredItems = activeItems.filter { itemDetail ->
         val categoryMatched = selectedCategoryId == null || itemDetail.item.categoryId == selectedCategoryId
@@ -91,7 +103,11 @@ fun HomeScreen(
         else -> "拍一下、存一下，常用物品一眼找到"
     }
 
-    Box {
+    Box(
+        modifier = Modifier.clickable(indication = null, interactionSource = null) {
+            openedItemId = null
+        }
+    ) {
         AppDecorativeBackground()
 
         LazyColumn(
@@ -177,12 +193,61 @@ fun HomeScreen(
                 }
             } else {
                 items(filteredItems, key = { it.item.id }) { itemDetail ->
-                    ItemCard(
-                        itemDetail = itemDetail,
-                        onClick = { onNavigateToDetail(itemDetail.item.id) },
+                    SwipeRevealItem(
+                        itemKey = itemDetail.item.id,
+                        openedItemKey = openedItemId,
+                        onOpenedItemChange = { openedItemId = it as Long? },
+                        actions = listOf(
+                            SwipeActionSpec(
+                                label = "编辑",
+                                icon = Icons.Default.Edit,
+                                backgroundColor = Color(0xFF5C7CFA),
+                                onClick = { onNavigateToEdit(itemDetail.item.id) }
+                            ),
+                            SwipeActionSpec(
+                                label = "用完",
+                                icon = Icons.Default.TaskAlt,
+                                backgroundColor = OrangeStart,
+                                onClick = { viewModel.markAsUsed(itemDetail.item.id) }
+                            ),
+                            SwipeActionSpec(
+                                label = "删除",
+                                icon = Icons.Default.Delete,
+                                backgroundColor = StatusExpired,
+                                onClick = { pendingDeleteItem = itemDetail.item }
+                            )
+                        ),
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
-                    )
+                    ) { closeActions, _ ->
+                        ItemCard(
+                            itemDetail = itemDetail,
+                            onClick = {
+                                closeActions()
+                                onNavigateToDetail(itemDetail.item.id)
+                            }
+                        )
+                    }
                 }
+            }
+        }
+
+        pendingDeleteItem?.let { item ->
+            AppDialog(
+                title = "确认删除",
+                subtitle = "删除后会先移入回收站，30 天内仍可恢复。",
+                onDismissRequest = { pendingDeleteItem = null },
+                confirmText = "移入回收站",
+                destructiveConfirm = true,
+                onConfirm = {
+                    viewModel.moveToTrash(item)
+                    pendingDeleteItem = null
+                }
+            ) {
+                Text(
+                    text = "确定要删除「${item.name}」吗？",
+                    color = TextSecondary,
+                    fontSize = 14.sp
+                )
             }
         }
     }

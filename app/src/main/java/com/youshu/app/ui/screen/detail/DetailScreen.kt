@@ -61,6 +61,7 @@ import com.youshu.app.ui.components.AppDialog
 import com.youshu.app.ui.components.AppSurfaceCard
 import com.youshu.app.ui.components.CategoryTag
 import com.youshu.app.ui.components.GradientButton
+import com.youshu.app.ui.components.ImagePreviewOverlay
 import com.youshu.app.ui.components.PillTag
 import com.youshu.app.ui.navigation.Screen
 import com.youshu.app.ui.theme.OrangeStart
@@ -89,6 +90,7 @@ fun DetailScreen(
     val items by viewModel.items.collectAsState()
     var showDeleteDialog by rememberSaveable { mutableStateOf(false) }
     var showRateDialog by rememberSaveable { mutableStateOf(false) }
+    var previewImageIndex by rememberSaveable { mutableStateOf<Int?>(null) }
     var pendingRating by rememberSaveable { mutableIntStateOf(5) }
     var scopedItemIds by remember(scope, itemId) { mutableStateOf<List<Long>>(emptyList()) }
     val pagerItems = remember(items, scope, scopedItemIds, itemId) {
@@ -145,6 +147,7 @@ fun DetailScreen(
 
     val detail = pagerItems.getOrNull(pagerState.currentPage) ?: pagerItems.first()
     val item = detail.item
+    val imagePaths = item.imagePathList()
 
     Box(modifier = Modifier.fillMaxSize()) {
         AppDecorativeBackground()
@@ -170,7 +173,12 @@ fun DetailScreen(
                         AsyncImage(
                             model = primaryImagePath,
                             contentDescription = pageItem.name,
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clickable {
+                                    previewImageIndex = pageItem.imagePathList().indexOf(primaryImagePath)
+                                        .takeIf { it >= 0 } ?: 0
+                                },
                             contentScale = ContentScale.Crop
                         )
                     } else {
@@ -364,49 +372,6 @@ fun DetailScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(22.dp))
-                when (item.status) {
-                    Item.STATUS_IN_USE -> {
-                        GradientButton(
-                            text = "已用完",
-                            onClick = {
-                                pendingRating = 5
-                                showRateDialog = true
-                            }
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                    }
-
-                    Item.STATUS_USED_UP -> {
-                        GradientButton(
-                            text = if (item.rating == null) "去评价" else "修改评价",
-                            onClick = {
-                                pendingRating = item.rating ?: 5
-                                showRateDialog = true
-                            }
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    ActionOutlineButton(
-                        text = "编辑",
-                        icon = Icons.Default.Edit,
-                        onClick = { onEdit(item.id) },
-                        modifier = Modifier.weight(1f)
-                    )
-                    ActionOutlineButton(
-                        text = "删除",
-                        icon = Icons.Default.Delete,
-                        onClick = { showDeleteDialog = true },
-                        modifier = Modifier.weight(1f),
-                        destructive = true
-                    )
-                }
             }
         }
     }
@@ -477,6 +442,16 @@ fun DetailScreen(
             )
         }
     }
+
+    previewImageIndex?.let { index ->
+        if (imagePaths.isNotEmpty()) {
+            ImagePreviewOverlay(
+                imagePaths = imagePaths,
+                initialIndex = index,
+                onDismissRequest = { previewImageIndex = null }
+            )
+        }
+    }
 }
 
 @Composable
@@ -528,47 +503,6 @@ private fun DetailInfoRow(
             modifier = Modifier.weight(1f)
         )
         tail?.invoke()
-    }
-}
-
-@Composable
-private fun ActionOutlineButton(
-    text: String,
-    icon: ImageVector,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    destructive: Boolean = false
-) {
-    val borderColor = if (destructive) StatusExpired.copy(alpha = 0.28f) else Color(0xFFEAE6F2)
-    val contentColor = if (destructive) StatusExpired else TextSecondary
-
-    Box(
-        modifier = modifier
-            .border(1.dp, borderColor, RoundedCornerShape(22.dp))
-            .clip(RoundedCornerShape(22.dp))
-            .background(Color.White)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 14.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = contentColor,
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = text,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                color = contentColor
-            )
-        }
     }
 }
 

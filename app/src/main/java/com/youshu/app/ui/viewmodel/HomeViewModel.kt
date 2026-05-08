@@ -3,6 +3,7 @@ package com.youshu.app.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.youshu.app.data.local.dao.CategoryDao
+import com.youshu.app.data.local.entity.Item
 import com.youshu.app.data.local.entity.Category
 import com.youshu.app.data.local.entity.ItemDetail
 import com.youshu.app.data.repository.ItemRepository
@@ -13,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
@@ -70,5 +72,17 @@ class HomeViewModel @Inject constructor(
 
     fun clearSearchHistory() {
         _searchHistory.value = emptyList()
+    }
+
+    fun moveToTrash(item: Item) {
+        viewModelScope.launch {
+            itemRepository.moveToTrash(item)
+        }
+    }
+
+    fun markAsUsed(id: Long) {
+        viewModelScope.launch {
+            itemRepository.markAsUsed(id)
+        }
     }
 }

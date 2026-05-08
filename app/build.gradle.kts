@@ -79,6 +79,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.okhttp)
     implementation(libs.haze)
+    implementation(libs.haze.materials)
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.android.compiler)

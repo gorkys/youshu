@@ -21,17 +21,18 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -40,13 +41,13 @@ import androidx.compose.material.icons.filled.FlashOff
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -56,6 +57,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
@@ -63,15 +65,23 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import coil.compose.AsyncImage
+import com.youshu.app.ui.theme.OrangeEnd
+import com.youshu.app.ui.theme.OrangeStart
 import java.io.File
 import java.util.concurrent.TimeUnit
+
+private enum class CameraTab(val label: String) {
+    GALLERY("图库"),
+    CAMERA("拍摄")
+}
 
 @Composable
 fun CameraScreen(
     onBack: () -> Unit,
     onDisposed: () -> Unit = {},
     onSkipPhoto: () -> Unit = {},
-    onPhotoTaken: (Uri) -> Unit
+    onPhotoTaken: (List<Uri>) -> Unit
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -85,6 +95,8 @@ fun CameraScreen(
     var flashEnabled by remember { mutableStateOf(false) }
     var focusMarker by remember { mutableStateOf<Pair<Float, Float>?>(null) }
     var focusMarkerStamp by remember { mutableLongStateOf(0L) }
+    var selectedTab by remember { mutableStateOf(CameraTab.CAMERA) }
+    val capturedUris = remember { mutableStateListOf<Uri>() }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -96,9 +108,13 @@ fun CameraScreen(
     }
 
     val galleryLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.GetContent()
-    ) { uri ->
-        uri?.let(onPhotoTaken)
+        ActivityResultContracts.GetMultipleContents()
+    ) { uris ->
+        if (uris.isNotEmpty()) {
+            capturedUris.clear()
+            capturedUris.addAll(uris)
+            selectedTab = CameraTab.GALLERY
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -131,13 +147,12 @@ fun CameraScreen(
             .fillMaxSize()
             .background(Color.Black)
     ) {
-        if (hasCameraPermission) {
+        if (selectedTab == CameraTab.CAMERA && hasCameraPermission) {
             AndroidView(
                 factory = { ctx ->
                     PreviewView(ctx).also { createdPreviewView ->
                         previewView = createdPreviewView
                         val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
-
                         cameraProviderFuture.addListener({
                             val provider = cameraProviderFuture.get()
                             cameraProvider = provider
@@ -181,111 +196,129 @@ fun CameraScreen(
                         }
                     }
             )
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFF181818))
+            ) {
+                if (capturedUris.isEmpty()) {
+                    EmptyGalleryState(
+                        modifier = Modifier.align(Alignment.Center),
+                        onPickGallery = { galleryLauncher.launch("image/*") }
+                    )
+                } else {
+                    AsyncImage(
+                        model = capturedUris.last(),
+                        contentDescription = "图库预览",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.14f))
+                    )
+                }
+            }
+        }
 
-            focusMarker?.let { (x, y) ->
-                val markerSize = with(density) { 72.dp.toPx() }
-                Box(
-                    modifier = Modifier
-                        .offset(
-                            x = with(density) { (x - markerSize / 2).toDp() },
-                            y = with(density) { (y - markerSize / 2).toDp() }
-                        )
-                        .size(72.dp)
-                        .border(2.dp, Color.White.copy(alpha = 0.92f), RoundedCornerShape(20.dp))
+        focusMarker?.takeIf { selectedTab == CameraTab.CAMERA }?.let { (x, y) ->
+            Box(
+                modifier = Modifier
+                    .padding(
+                        start = with(density) { x.toDp() - 36.dp },
+                        top = with(density) { y.toDp() - 36.dp }
+                    )
+                    .size(72.dp)
+                    .border(2.dp, Color.White.copy(alpha = 0.92f), RoundedCornerShape(20.dp))
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(124.dp)
+                .align(Alignment.TopCenter)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(Color.Black.copy(alpha = 0.48f), Color.Transparent)
+                    )
+                )
+        )
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.14f))
+                    .clickable(onClick = onBack)
+                    .padding(12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "关闭",
+                    tint = Color.White
                 )
             }
 
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(116.dp)
-                    .align(Alignment.TopCenter)
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(Color.Black.copy(alpha = 0.5f), Color.Transparent)
-                        )
-                    )
+            Text(
+                text = if (capturedUris.isEmpty()) "拍封面图" else "继续补拍细节图",
+                color = Color.White,
+                fontSize = 18.sp
             )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 8.dp, vertical = 8.dp)
-                    .align(Alignment.TopCenter),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onBack) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "关闭",
-                        tint = Color.White
-                    )
-                }
-                IconButton(onClick = { flashEnabled = !flashEnabled }) {
+
+            if (selectedTab == CameraTab.CAMERA) {
+                Box(
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.14f))
+                        .clickable { flashEnabled = !flashEnabled }
+                        .padding(12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
                     Icon(
                         imageVector = if (flashEnabled) Icons.Default.FlashOn else Icons.Default.FlashOff,
                         contentDescription = "闪光灯",
                         tint = Color.White
                     )
                 }
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(Color.White.copy(alpha = 0.16f))
-                        .clickable(onClick = onSkipPhoto)
-                        .padding(horizontal = 12.dp, vertical = 10.dp)
-                ) {
-                    Text(
-                        text = "跳过图片",
-                        color = Color.White,
-                        fontSize = 12.sp
-                    )
-                }
+            } else {
+                Spacer(modifier = Modifier.size(48.dp))
             }
+        }
 
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .navigationBarsPadding()
-                    .padding(horizontal = 28.dp, vertical = 22.dp)
-            ) {
-                Text(
-                    text = "轻触画面可对焦",
-                    color = Color.White.copy(alpha = 0.82f),
-                    fontSize = 12.sp,
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                )
-                Spacer(modifier = Modifier.height(14.dp))
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .background(Color.Black.copy(alpha = 0.8f))
+                .padding(horizontal = 20.dp, vertical = 16.dp)
+        ) {
+            if (selectedTab == CameraTab.CAMERA) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(52.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(Color.White.copy(alpha = 0.18f))
-                            .clickable { galleryLauncher.launch("image/*") },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.PhotoLibrary,
-                            contentDescription = "相册",
-                            tint = Color.White
-                        )
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .size(82.dp)
+                            .size(84.dp)
                             .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.22f))
-                            .border(2.dp, Color.White.copy(alpha = 0.8f), CircleShape)
+                            .background(Color.White.copy(alpha = 0.2f))
+                            .border(2.dp, Color.White.copy(alpha = 0.78f), CircleShape)
                             .clickable {
                                 takePhoto(context, imageCapture) { uri ->
-                                    onPhotoTaken(uri)
+                                    capturedUris.add(uri)
                                 }
                             },
                         contentAlignment = Alignment.Center
@@ -294,41 +327,148 @@ fun CameraScreen(
                             modifier = Modifier
                                 .size(64.dp)
                                 .clip(CircleShape)
-                                .background(Color.White)
+                                .background(
+                                    brush = Brush.linearGradient(
+                                        colors = listOf(OrangeStart, OrangeEnd)
+                                    )
+                                )
                         )
                     }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            if (capturedUris.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    LazyRow(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        contentPadding = PaddingValues(end = 2.dp)
+                    ) {
+                        itemsIndexed(capturedUris, key = { index, uri -> "$index-$uri" }) { index, uri ->
+                            Box(modifier = Modifier.size(72.dp)) {
+                                AsyncImage(
+                                    model = uri,
+                                    contentDescription = "缩略图 ${index + 1}",
+                                    modifier = Modifier
+                                        .matchParentSize()
+                                        .clip(RoundedCornerShape(16.dp)),
+                                    contentScale = ContentScale.Crop
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(4.dp)
+                                        .size(18.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.Black.copy(alpha = 0.42f))
+                                        .clickable { capturedUris.removeAt(index) },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "删除缩略图",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(10.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(Color(0xFFFFC44A))
+                            .clickable {
+                                onPhotoTaken(capturedUris.toList())
+                            }
+                            .padding(horizontal = 14.dp, vertical = 10.dp)
+                    ) {
                         Text(
-                            text = "多拍",
-                            color = Color.White,
-                            fontSize = 14.sp
+                            text = "下一步",
+                            color = Color.Black,
+                            fontSize = 14.sp,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
                         )
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                CameraTab.values().forEach { tab ->
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.clickable {
+                            selectedTab = tab
+                            if (tab == CameraTab.GALLERY && capturedUris.isEmpty()) {
+                                galleryLauncher.launch("image/*")
+                            }
+                        }
+                    ) {
                         Text(
-                            text = "连续录入更高效",
-                            color = Color.White.copy(alpha = 0.72f),
-                            fontSize = 10.sp
+                            text = tab.label,
+                            color = if (selectedTab == tab) Color.White else Color.White.copy(alpha = 0.58f),
+                            fontSize = 18.sp
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(width = 24.dp, height = 3.dp)
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(
+                                    if (selectedTab == tab) Color(0xFFFFC44A) else Color.Transparent
+                                )
                         )
                     }
                 }
             }
-        } else {
-            Column(
-                modifier = Modifier.align(Alignment.Center),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "需要相机权限",
-                    color = Color.White,
-                    fontSize = 18.sp
-                )
-                Spacer(modifier = Modifier.size(8.dp))
-                Text(
-                    text = "请在系统设置中开启权限后再继续使用。",
-                    color = Color.White.copy(alpha = 0.72f),
-                    fontSize = 13.sp
-                )
-            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyGalleryState(
+    modifier: Modifier = Modifier,
+    onPickGallery: () -> Unit
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            imageVector = Icons.Default.PhotoLibrary,
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.8f),
+            modifier = Modifier.size(34.dp)
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        Text(
+            text = "还没有选择图片",
+            color = Color.White,
+            fontSize = 16.sp
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(999.dp))
+                .background(Color.White.copy(alpha = 0.16f))
+                .clickable(onClick = onPickGallery)
+                .padding(horizontal = 16.dp, vertical = 10.dp)
+        ) {
+            Text(
+                text = "打开图库",
+                color = Color.White,
+                fontSize = 13.sp
+            )
         }
     }
 }

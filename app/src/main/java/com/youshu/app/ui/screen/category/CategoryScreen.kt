@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,23 +21,44 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.StickyNote2
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.Backpack
 import androidx.compose.material.icons.filled.Checkroom
-import androidx.compose.material.icons.filled.Devices
+import androidx.compose.material.icons.filled.ChildCare
+import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Fastfood
 import androidx.compose.material.icons.filled.Handyman
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Kitchen
+import androidx.compose.material.icons.filled.LocalCafe
+import androidx.compose.material.icons.filled.LocalLaundryService
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MedicalServices
+import androidx.compose.material.icons.filled.MonitorHeart
+import androidx.compose.material.icons.filled.Pets
+import androidx.compose.material.icons.filled.Power
+import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.SelfImprovement
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.ShoppingBasket
+import androidx.compose.material.icons.filled.Spa
+import androidx.compose.material.icons.filled.SportsEsports
+import androidx.compose.material.icons.filled.TaskAlt
+import androidx.compose.material.icons.filled.Toys
+import androidx.compose.material.icons.filled.WaterDrop
+import androidx.compose.material.icons.filled.WineBar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -58,6 +80,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.youshu.app.data.local.entity.Category
+import com.youshu.app.data.local.entity.Item
 import com.youshu.app.data.local.entity.Location
 import com.youshu.app.ui.components.AppDecorativeBackground
 import com.youshu.app.ui.components.AppDialog
@@ -65,6 +88,8 @@ import com.youshu.app.ui.components.AppSurfaceCard
 import com.youshu.app.ui.components.EmptyState
 import com.youshu.app.ui.components.ItemCard
 import com.youshu.app.ui.components.SectionHeader
+import com.youshu.app.ui.components.SwipeActionSpec
+import com.youshu.app.ui.components.SwipeRevealItem
 import com.youshu.app.ui.theme.OrangeStart
 import com.youshu.app.ui.theme.StatusExpired
 import com.youshu.app.ui.theme.TextHint
@@ -86,12 +111,31 @@ private val categoryIconOptions = listOf(
     CategoryIconOption("clothes", "衣物", Icons.Default.Checkroom),
     CategoryIconOption("stationery", "文具", Icons.AutoMirrored.Filled.StickyNote2),
     CategoryIconOption("tool", "工具", Icons.Default.Handyman),
+    CategoryIconOption("kitchen", "厨具", Icons.Default.Kitchen),
+    CategoryIconOption("coffee", "饮品", Icons.Default.LocalCafe),
+    CategoryIconOption("laundry", "洗护", Icons.Default.LocalLaundryService),
+    CategoryIconOption("cleaning", "清洁", Icons.Default.CleaningServices),
+    CategoryIconOption("pet", "宠物", Icons.Default.Pets),
+    CategoryIconOption("child", "母婴", Icons.Default.ChildCare),
+    CategoryIconOption("game", "娱乐", Icons.Default.SportsEsports),
+    CategoryIconOption("bag", "收纳", Icons.Default.Backpack),
+    CategoryIconOption("care", "个护", Icons.Default.SelfImprovement),
+    CategoryIconOption("basket", "囤货", Icons.Default.ShoppingBasket),
+    CategoryIconOption("drink", "酒水", Icons.Default.WineBar),
+    CategoryIconOption("snack", "零食", Icons.Default.Restaurant),
+    CategoryIconOption("bath", "洗浴", Icons.Default.WaterDrop),
+    CategoryIconOption("health", "保健", Icons.Default.MonitorHeart),
+    CategoryIconOption("safe", "防护", Icons.Default.Shield),
+    CategoryIconOption("toy", "玩具", Icons.Default.Toys),
+    CategoryIconOption("beauty", "美护", Icons.Default.Spa),
+    CategoryIconOption("battery", "电池", Icons.Default.Power),
     CategoryIconOption("other", "其它", Icons.Default.Apps)
 )
 
 @Composable
 fun CategoryScreen(
     onNavigateToDetail: (Long) -> Unit,
+    onNavigateToEdit: (Long) -> Unit,
     viewModel: CategoryViewModel = hiltViewModel()
 ) {
     val categories by viewModel.categories.collectAsState()
@@ -106,6 +150,8 @@ fun CategoryScreen(
     val expandedLocations = remember { mutableStateMapOf<Long, Boolean>() }
     var showCategoryDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var openedItemId by remember { mutableStateOf<Long?>(null) }
+    var pendingDeleteItem by remember { mutableStateOf<Item?>(null) }
     var inputName by remember { mutableStateOf("") }
     var selectedIconKey by remember { mutableStateOf(categoryIconOptions.first().key) }
     var isEditingCategory by remember { mutableStateOf(false) }
@@ -130,7 +176,13 @@ fun CategoryScreen(
         else -> selectedLocation?.name ?: "全部位置"
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .clickable(indication = null, interactionSource = null) {
+                openedItemId = null
+            }
+    ) {
         AppDecorativeBackground()
 
         Column(
@@ -287,10 +339,39 @@ fun CategoryScreen(
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 items(filteredItems, key = { it.item.id }) { itemDetail ->
-                                    ItemCard(
-                                        itemDetail = itemDetail,
-                                        onClick = { onNavigateToDetail(itemDetail.item.id) }
-                                    )
+                                    SwipeRevealItem(
+                                        itemKey = itemDetail.item.id,
+                                        openedItemKey = openedItemId,
+                                        onOpenedItemChange = { openedItemId = it as Long? },
+                                        actions = listOf(
+                                            SwipeActionSpec(
+                                                label = "编辑",
+                                                icon = Icons.Default.Edit,
+                                                backgroundColor = Color(0xFF5C7CFA),
+                                                onClick = { onNavigateToEdit(itemDetail.item.id) }
+                                            ),
+                                            SwipeActionSpec(
+                                                label = "用完",
+                                                icon = Icons.Default.TaskAlt,
+                                                backgroundColor = OrangeStart,
+                                                onClick = { viewModel.markAsUsed(itemDetail.item.id) }
+                                            ),
+                                            SwipeActionSpec(
+                                                label = "删除",
+                                                icon = Icons.Default.DeleteOutline,
+                                                backgroundColor = StatusExpired,
+                                                onClick = { pendingDeleteItem = itemDetail.item }
+                                            )
+                                        )
+                                    ) { closeActions, _ ->
+                                        ItemCard(
+                                            itemDetail = itemDetail,
+                                            onClick = {
+                                                closeActions()
+                                                onNavigateToDetail(itemDetail.item.id)
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -365,6 +446,26 @@ fun CategoryScreen(
             )
         }
     }
+
+    pendingDeleteItem?.let { item ->
+        AppDialog(
+            title = "确认删除",
+            subtitle = "删除后会先移入回收站，30 天内仍可恢复。",
+            onDismissRequest = { pendingDeleteItem = null },
+            confirmText = "移入回收站",
+            destructiveConfirm = true,
+            onConfirm = {
+                viewModel.moveToTrash(item)
+                pendingDeleteItem = null
+            }
+        ) {
+            Text(
+                text = "确定要删除「${item.name}」吗？",
+                fontSize = 14.sp,
+                color = TextSecondary
+            )
+        }
+    }
 }
 
 @Composable
@@ -379,7 +480,7 @@ private fun CategoryEditorDialog(
 ) {
     AppDialog(
         title = title,
-        subtitle = "预制类别支持修改名称，并可切换对应图标。",
+        subtitle = "支持修改名称，并从下方图标库中直接选择。",
         onDismissRequest = onDismissRequest,
         confirmText = "保存",
         confirmEnabled = inputName.isNotBlank(),
@@ -398,51 +499,40 @@ private fun CategoryEditorDialog(
             fontWeight = FontWeight.Medium,
             color = TextSecondary
         )
-        LazyColumn(
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(5),
             modifier = Modifier.height(220.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            items(categoryIconOptions, key = { it.key }) { option ->
-                Row(
+            items(categoryIconOptions.size, key = { index -> categoryIconOptions[index].key }) { index ->
+                val option = categoryIconOptions[index]
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(18.dp))
+                        .size(52.dp)
+                        .clip(RoundedCornerShape(16.dp))
                         .background(
                             if (selectedIconKey == option.key) OrangeStart.copy(alpha = 0.1f)
                             else Color(0xFFF8F6FC)
                         )
-                        .clickable { onIconSelect(option.key) }
-                        .padding(horizontal = 14.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .border(
+                            width = 1.dp,
+                            color = if (selectedIconKey == option.key) {
+                                OrangeStart.copy(alpha = 0.42f)
+                            } else {
+                                Color.Transparent
+                            },
+                            shape = RoundedCornerShape(16.dp)
+                        )
+                        .clickable { onIconSelect(option.key) },
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
-                            .background(Color.White),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = option.icon,
-                            contentDescription = null,
-                            tint = OrangeStart
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = option.label,
-                        modifier = Modifier.weight(1f),
-                        color = TextPrimary,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold
+                    Icon(
+                        imageVector = option.icon,
+                        contentDescription = option.label,
+                        tint = if (selectedIconKey == option.key) OrangeStart else TextHint,
+                        modifier = Modifier.size(24.dp)
                     )
-                    if (selectedIconKey == option.key) {
-                        Text(
-                            text = "已选",
-                            color = OrangeStart,
-                            fontSize = 12.sp
-                        )
-                    }
                 }
             }
         }

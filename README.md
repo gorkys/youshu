@@ -1,7 +1,7 @@
 # 有数
 
 <p align="center">
-  <img src="./logo.png" alt="有数 Banner" width="35%" />
+  <img src="./image/readme/logo.png" alt="有数 Banner" width="35%" />
 </p>
 
 <p align="center">
@@ -38,7 +38,7 @@
 ### 品牌展示
 
 <p align="center">
-  <img src="./宣传图.png" alt="有数品牌展示" width="100%" />
+  <img src="./image/readme/宣传图.png" alt="有数品牌展示" width="100%" />
 </p>
 
 ### 当前页面能力

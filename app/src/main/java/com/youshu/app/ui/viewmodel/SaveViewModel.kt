@@ -68,6 +68,24 @@ class SaveViewModel @Inject constructor(
         }
     }
 
+    fun initFromPhotos(context: Context, imageUris: List<Uri>, aiName: String?, aiCategory: String?) {
+        val current = _state.value
+        if (imageUris.isEmpty() || current.imagePaths.isNotEmpty()) return
+
+        val savedPaths = imageUris.mapNotNull { ImageUtil.saveImageToInternal(context, it) }.distinct()
+        _state.value = current.copy(
+            name = aiName ?: current.name,
+            imagePaths = savedPaths
+        )
+        if (aiCategory != null) {
+            viewModelScope.launch {
+                categories.value.find { it.name == aiCategory }?.let { category ->
+                    _state.value = _state.value.copy(categoryId = category.id)
+                }
+            }
+        }
+    }
+
     fun appendPhotos(context: Context, uris: List<Uri>) {
         if (uris.isEmpty()) return
         val savedPaths = uris.mapNotNull { ImageUtil.saveImageToInternal(context, it) }
@@ -94,6 +112,14 @@ class SaveViewModel @Inject constructor(
         val removed = currentPaths.getOrNull(index) ?: return
         currentPaths.removeAt(index)
         ImageUtil.deleteImage(removed)
+        _state.value = _state.value.copy(imagePaths = currentPaths)
+    }
+
+    fun movePhoto(fromIndex: Int, toIndex: Int) {
+        val currentPaths = _state.value.imagePaths.toMutableList()
+        if (fromIndex !in currentPaths.indices || toIndex !in currentPaths.indices || fromIndex == toIndex) return
+        val moved = currentPaths.removeAt(fromIndex)
+        currentPaths.add(toIndex, moved)
         _state.value = _state.value.copy(imagePaths = currentPaths)
     }
 

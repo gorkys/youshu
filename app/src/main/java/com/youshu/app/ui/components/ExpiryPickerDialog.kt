@@ -2,20 +2,19 @@ package com.youshu.app.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -24,8 +23,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.youshu.app.ui.theme.OrangeStart
@@ -35,10 +36,9 @@ import com.youshu.app.ui.theme.TextSecondary
 import com.youshu.app.util.DateUtil
 import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneId
 import java.time.YearMonth
+import java.time.ZoneId
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ExpiryPickerDialog(
     selectedDateMillis: Long?,
@@ -67,7 +67,7 @@ fun ExpiryPickerDialog(
 
     AppDialog(
         title = "选择有效期",
-        subtitle = "先选年份，再直观切换月份和日期。",
+        subtitle = "按年、月、日分步选择，布局固定更直观。",
         onDismissRequest = onDismissRequest,
         confirmText = "确定",
         secondaryText = "清空",
@@ -97,7 +97,7 @@ fun ExpiryPickerDialog(
                 modifier = Modifier.weight(1f)
             )
             ExpiryTab(
-                text = "${selectedDay}日",
+                text = selectedDay.toString(),
                 selected = selectedPanel == ExpiryPanel.DAY,
                 onClick = { selectedPanel = ExpiryPanel.DAY },
                 modifier = Modifier.weight(1f)
@@ -117,62 +117,44 @@ fun ExpiryPickerDialog(
             modifier = Modifier.align(Alignment.CenterHorizontally)
         )
 
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-        ) {
-            when (selectedPanel) {
-                ExpiryPanel.YEAR -> {
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        yearRange.forEach { year ->
-                            ExpiryOptionChip(
-                                text = "${year}年",
-                                selected = selectedYear == year,
-                                onClick = {
-                                    selectedYear = year
-                                    selectedPanel = ExpiryPanel.MONTH
-                                }
-                            )
-                        }
+        when (selectedPanel) {
+            ExpiryPanel.YEAR -> {
+                FixedGridOptions(
+                    columns = 3,
+                    items = yearRange,
+                    key = { it },
+                    label = { it.toString() },
+                    selected = { selectedYear == it },
+                    onSelect = {
+                        selectedYear = it
+                        selectedPanel = ExpiryPanel.MONTH
                     }
-                }
+                )
+            }
 
-                ExpiryPanel.MONTH -> {
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        (1..12).forEach { month ->
-                            ExpiryOptionChip(
-                                text = "${month}月",
-                                selected = selectedMonth == month,
-                                onClick = {
-                                    selectedMonth = month
-                                    selectedPanel = ExpiryPanel.DAY
-                                }
-                            )
-                        }
+            ExpiryPanel.MONTH -> {
+                FixedGridOptions(
+                    columns = 4,
+                    items = (1..12).toList(),
+                    key = { it },
+                    label = { "${it}月" },
+                    selected = { selectedMonth == it },
+                    onSelect = {
+                        selectedMonth = it
+                        selectedPanel = ExpiryPanel.DAY
                     }
-                }
+                )
+            }
 
-                ExpiryPanel.DAY -> {
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        (1..maxDay).forEach { day ->
-                            ExpiryOptionChip(
-                                text = "${day}日",
-                                selected = selectedDay == day,
-                                onClick = { selectedDay = day }
-                            )
-                        }
-                    }
-                }
+            ExpiryPanel.DAY -> {
+                FixedGridOptions(
+                    columns = 7,
+                    items = (1..maxDay).toList(),
+                    key = { it },
+                    label = { it.toString() },
+                    selected = { selectedDay == it },
+                    onSelect = { selectedDay = it }
+                )
             }
         }
     }
@@ -191,13 +173,22 @@ private fun ExpiryTab(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
     Box(
         modifier = modifier
+            .clip(RoundedCornerShape(18.dp))
             .background(
                 color = if (selected) OrangeStart.copy(alpha = 0.12f) else Color(0xFFF8F6FC),
                 shape = RoundedCornerShape(18.dp)
             )
-            .clickable(onClick = onClick)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = ripple(
+                    bounded = true,
+                    color = OrangeStart.copy(alpha = 0.16f)
+                ),
+                onClick = onClick
+            )
             .padding(vertical = 10.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -211,35 +202,67 @@ private fun ExpiryTab(
 }
 
 @Composable
-private fun ExpiryOptionChip(
+private fun <T> FixedGridOptions(
+    columns: Int,
+    items: List<T>,
+    key: (T) -> Any,
+    label: (T) -> String,
+    selected: (T) -> Boolean,
+    onSelect: (T) -> Unit
+) {
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(columns),
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(max = 300.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        userScrollEnabled = true
+    ) {
+        items(items, key = key) { item ->
+            ExpiryGridCell(
+                text = label(item),
+                selected = selected(item),
+                onClick = { onSelect(item) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ExpiryGridCell(
     text: String,
     selected: Boolean,
     onClick: () -> Unit
 ) {
-    Row(
+    val interactionSource = remember { MutableInteractionSource() }
+    Box(
         modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 42.dp)
+            .clip(RoundedCornerShape(18.dp))
             .background(
                 color = if (selected) OrangeStart.copy(alpha = 0.14f) else Color(0xFFF8F6FC),
-                shape = RoundedCornerShape(999.dp)
+                shape = RoundedCornerShape(18.dp)
             )
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center
+            .clickable(
+                interactionSource = interactionSource,
+                indication = ripple(
+                    bounded = true,
+                    color = OrangeStart.copy(alpha = 0.16f)
+                ),
+                onClick = onClick
+            )
+            .padding(horizontal = 8.dp, vertical = 12.dp),
+        contentAlignment = Alignment.Center
     ) {
-        if (selected) {
-            Box(
-                modifier = Modifier
-                    .size(6.dp)
-                    .background(OrangeStart, CircleShape)
-            )
-        }
         Text(
             text = text,
             color = if (selected) OrangeStart else TextHint,
             fontSize = 13.sp,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-            modifier = Modifier.padding(start = if (selected) 6.dp else 0.dp)
+            textAlign = TextAlign.Center,
+            maxLines = 1
         )
     }
 }

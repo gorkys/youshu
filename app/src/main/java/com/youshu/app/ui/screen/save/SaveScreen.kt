@@ -1,8 +1,6 @@
 package com.youshu.app.ui.screen.save
 
 import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
@@ -75,6 +73,7 @@ private data class ExpiryQuickOption(val label: String, val timestamp: Long)
 @Composable
 fun SaveScreen(
     imageUri: Uri?,
+    pendingImageUris: List<Uri>,
     onBack: () -> Unit,
     onSaved: () -> Unit,
     onOpenCamera: (mode: SavePhotoMode) -> Unit,
@@ -85,12 +84,6 @@ fun SaveScreen(
     val categories by viewModel.categories.collectAsState()
     val locations by viewModel.locations.collectAsState()
     val leafLocations = locations.filter { it.parentId != null }
-
-    val galleryLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetMultipleContents()
-    ) { uris ->
-        viewModel.appendPhotos(context, uris)
-    }
 
     var showAdvanced by remember { mutableStateOf(true) }
     var showDatePicker by remember { mutableStateOf(false) }
@@ -104,8 +97,11 @@ fun SaveScreen(
         )
     }
 
-    LaunchedEffect(imageUri) {
-        viewModel.initFromPhoto(context, imageUri, null, null)
+    LaunchedEffect(imageUri, pendingImageUris) {
+        when {
+            pendingImageUris.isNotEmpty() -> viewModel.initFromPhotos(context, pendingImageUris, null, null)
+            else -> viewModel.initFromPhoto(context, imageUri, null, null)
+        }
     }
 
     LaunchedEffect(state.isSaved) {
@@ -200,9 +196,11 @@ fun SaveScreen(
 
                         ItemImageGallery(
                             imagePaths = state.imagePaths,
-                            onAddPhoto = { galleryLauncher.launch("image/*") },
-                            onRetakePrimary = { onOpenCamera(SavePhotoMode.REPLACE_PRIMARY) },
-                            onRemoveImage = viewModel::removePhoto
+                            onCapturePrimary = { onOpenCamera(SavePhotoMode.REPLACE_PRIMARY) },
+                            onCaptureDetail = { onOpenCamera(SavePhotoMode.APPEND) },
+                            onSelectNoImage = {},
+                            onRemoveImage = viewModel::removePhoto,
+                            onMoveImage = viewModel::movePhoto
                         )
 
                         Spacer(modifier = Modifier.height(18.dp))

@@ -35,8 +35,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeDefaults
-import dev.chrisbanes.haze.hazeChild
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.HazeTint
+import dev.chrisbanes.haze.hazeEffect
 import com.youshu.app.ui.theme.Background
 import com.youshu.app.ui.theme.CardWhite
 import com.youshu.app.ui.theme.DividerSoft
@@ -45,6 +46,20 @@ import com.youshu.app.ui.theme.OrangeLight
 import com.youshu.app.ui.theme.OrangeStart
 import com.youshu.app.ui.theme.TextPrimary
 import com.youshu.app.ui.theme.TextSecondary
+
+fun appGlassStyle(blurAlpha: Float = 0.55f): HazeStyle {
+    val strength = blurAlpha.coerceIn(0f, 1f)
+    return HazeStyle(
+        backgroundColor = Color.Transparent,
+        tints = listOf(
+            HazeTint(Color.White.copy(alpha = 0.08f + (0.05f * strength))),
+            HazeTint(Color(0xFFFFF5E8).copy(alpha = 0.03f + (0.03f * strength)))
+        ),
+        blurRadius = (18 + (8 * strength)).dp,
+        noiseFactor = 0f,
+        fallbackTint = HazeTint(Color.White.copy(alpha = 0.56f + (0.12f * strength)))
+    )
+}
 
 @Composable
 fun AppDecorativeBackground(modifier: Modifier = Modifier) {
@@ -161,7 +176,8 @@ fun GlassPanel(
     blurAlpha: Float = 0.55f,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val glassTint = containerColor.copy(alpha = 0.06f + (blurAlpha.coerceIn(0f, 1f) * 0.05f))
+    val glassBackground = containerColor.copy(alpha = 0.015f + (blurAlpha.coerceIn(0f, 1f) * 0.01f))
+    val glassStyle = appGlassStyle(blurAlpha = blurAlpha)
     Box(
         modifier = modifier
             .shadow(
@@ -173,20 +189,12 @@ fun GlassPanel(
             .clip(shape)
             .then(
                 if (hazeState == null) {
-                    Modifier.background(containerColor)
+                    Modifier.background(glassBackground)
                 } else {
-                    Modifier.hazeChild(
+                    Modifier.hazeEffect(
                         state = hazeState,
-                        style = HazeDefaults.style(
-                            backgroundColor = Color.Transparent,
-                            tint = HazeDefaults.tint(glassTint),
-                            blurRadius = 36.dp,
-                            noiseFactor = 0f
-                        )
-                    ) {
-                        blurEnabled = true
-                        alpha = 0.98f
-                    }
+                        style = glassStyle
+                    )
                 }
             )
             .border(

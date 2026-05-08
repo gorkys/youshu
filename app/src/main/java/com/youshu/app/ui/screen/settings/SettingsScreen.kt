@@ -1,7 +1,6 @@
 package com.youshu.app.ui.screen.settings
 
 import android.content.Intent
-import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -44,6 +43,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
@@ -128,7 +128,7 @@ fun SettingsScreen(
                 )
                 Spacer(modifier = Modifier.size(6.dp))
                 Text(
-                    text = "导出时会一并打包分类、位置、物品与已保存的图片；导入会覆盖当前本地数据。",
+                    text = "导出时会打包分类、位置、物品和已保存图片；导入会覆盖当前本地数据。",
                     fontSize = 12.sp,
                     color = TextSecondary
                 )
@@ -165,7 +165,7 @@ fun SettingsScreen(
                 )
                 Spacer(modifier = Modifier.size(6.dp))
                 Text(
-                    text = "根据 GitHub Release 的最新 tag 检查版本状态，并支持在线下载安装包。",
+                    text = "根据 GitHub Release 的最新 tag 检查版本状态，并优先下载可直接安装的 debug APK。",
                     fontSize = 12.sp,
                     color = TextSecondary
                 )
@@ -174,8 +174,8 @@ fun SettingsScreen(
                     icon = Icons.Default.SystemUpdate,
                     title = "检查新版本",
                     subtitle = state.latestRelease?.let {
-                        if (it.hasUpdate) "发现 ${it.latestVersion}" else "当前已是最新版本"
-                    } ?: "当前版本待检查",
+                        if (it.hasUpdate) "发现 ${it.latestVersion}" else "当前已经是最新版本"
+                    } ?: "点击后拉取远程版本信息",
                     onClick = viewModel::checkForUpdates
                 )
 
@@ -189,7 +189,7 @@ fun SettingsScreen(
                     SettingsActionRow(
                         icon = Icons.Default.CloudDownload,
                         title = "安装已下载更新",
-                        subtitle = "如果下载完成，可直接调起安装",
+                        subtitle = release.apkName?.let { "当前目标：$it" } ?: "下载完成后可直接调起安装",
                         onClick = { viewModel.installDownloadedApk() }
                     )
                     Spacer(modifier = Modifier.size(10.dp))
@@ -214,7 +214,7 @@ fun SettingsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 8.dp),
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    textAlign = TextAlign.Center
                 )
             }
         }

@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 enum class LibraryStatusFilter(val label: String) {
@@ -64,6 +65,24 @@ class SearchViewModel @Inject constructor(
 
     fun selectFilter(filter: LibraryStatusFilter) {
         _selectedFilter.value = filter
+    }
+
+    fun moveToTrash(item: Item) {
+        viewModelScope.launch {
+            itemRepository.moveToTrash(item)
+        }
+    }
+
+    fun markAsUsed(id: Long) {
+        viewModelScope.launch {
+            itemRepository.markAsUsed(id)
+        }
+    }
+
+    fun rateUsedItem(id: Long, rating: Int) {
+        viewModelScope.launch {
+            itemRepository.rateUsedItem(id, rating)
+        }
     }
 
     private fun matchesQuery(itemDetail: ItemDetail, query: String): Boolean {

@@ -19,6 +19,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.RateReview
 import androidx.compose.material.icons.filled.TaskAlt
@@ -27,6 +29,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,12 +41,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.youshu.app.data.local.entity.Item
+import com.youshu.app.ui.components.AppDialog
 import com.youshu.app.ui.components.AppDecorativeBackground
 import com.youshu.app.ui.components.AppSurfaceCard
 import com.youshu.app.ui.components.EmptyState
 import com.youshu.app.ui.components.ItemCard
 import com.youshu.app.ui.components.SearchBar
 import com.youshu.app.ui.components.SectionHeader
+import com.youshu.app.ui.components.SwipeActionSpec
+import com.youshu.app.ui.components.SwipeRevealItem
 import com.youshu.app.ui.theme.OrangeStart
 import com.youshu.app.ui.theme.TextPrimary
 import com.youshu.app.ui.theme.TextSecondary
@@ -51,14 +60,23 @@ import com.youshu.app.ui.viewmodel.SearchViewModel
 @Composable
 fun SearchScreen(
     onNavigateToDetail: (Long, LibraryStatusFilter) -> Unit,
+    onNavigateToEdit: (Long) -> Unit,
     viewModel: SearchViewModel = hiltViewModel()
 ) {
     val query by viewModel.query.collectAsState()
     val results by viewModel.results.collectAsState()
     val selectedFilter by viewModel.selectedFilter.collectAsState()
     val statusCounts by viewModel.statusCounts.collectAsState()
+    var openedItemId by remember { mutableStateOf<Long?>(null) }
+    var pendingDeleteItem by remember { mutableStateOf<Item?>(null) }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .clickable(indication = null, interactionSource = null) {
+                openedItemId = null
+            }
+    ) {
         AppDecorativeBackground()
 
         Column(
@@ -129,12 +147,80 @@ fun SearchScreen(
                         )
                     }
                     items(results, key = { it.item.id }) { itemDetail ->
-                        ItemCard(
-                            itemDetail = itemDetail,
-                            onClick = { onNavigateToDetail(itemDetail.item.id, selectedFilter) }
-                        )
+                        val actionSpecs = buildList {
+                            add(
+                                SwipeActionSpec(
+                                    label = "编辑",
+                                    icon = Icons.Default.Edit,
+                                    backgroundColor = Color(0xFF5C7CFA),
+                                    onClick = { onNavigateToEdit(itemDetail.item.id) }
+                                )
+                            )
+                            when (selectedFilter) {
+                                LibraryStatusFilter.PENDING_REVIEW -> add(
+                                    SwipeActionSpec(
+                                        label = "评价",
+                                        icon = Icons.Default.RateReview,
+                                        backgroundColor = OrangeStart,
+                                        onClick = { viewModel.rateUsedItem(itemDetail.item.id, 5) }
+                                    )
+                                )
+
+                                LibraryStatusFilter.REVIEWED -> Unit
+                                else -> add(
+                                    SwipeActionSpec(
+                                        label = "用完",
+                                        icon = Icons.Default.TaskAlt,
+                                        backgroundColor = OrangeStart,
+                                        onClick = { viewModel.markAsUsed(itemDetail.item.id) }
+                                    )
+                                )
+                            }
+                            add(
+                                SwipeActionSpec(
+                                    label = "删除",
+                                    icon = Icons.Default.Delete,
+                                    backgroundColor = Color(0xFFE65B5B),
+                                    onClick = { pendingDeleteItem = itemDetail.item }
+                                )
+                            )
+                        }
+                        SwipeRevealItem(
+                            itemKey = itemDetail.item.id,
+                            openedItemKey = openedItemId,
+                            onOpenedItemChange = { openedItemId = it as Long? },
+                            actions = actionSpecs
+                        ) { closeActions, _ ->
+                            ItemCard(
+                                itemDetail = itemDetail,
+                                onClick = {
+                                    closeActions()
+                                    onNavigateToDetail(itemDetail.item.id, selectedFilter)
+                                }
+                            )
+                        }
                     }
                 }
+            }
+        }
+
+        pendingDeleteItem?.let { item ->
+            AppDialog(
+                title = "确认删除",
+                subtitle = "删除后会先移入回收站，30 天内仍可恢复。",
+                onDismissRequest = { pendingDeleteItem = null },
+                confirmText = "移入回收站",
+                destructiveConfirm = true,
+                onConfirm = {
+                    viewModel.moveToTrash(item)
+                    pendingDeleteItem = null
+                }
+            ) {
+                Text(
+                    text = "确定要删除「${item.name}」吗？",
+                    color = TextSecondary,
+                    fontSize = 14.sp
+                )
             }
         }
     }

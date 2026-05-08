@@ -2,6 +2,7 @@ package com.youshu.app.ui.navigation
 
 import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -52,6 +53,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.youshu.app.ui.components.GlassPanel
+import com.youshu.app.ui.components.appGlassStyle
 import com.youshu.app.ui.screen.camera.CameraScreen
 import com.youshu.app.ui.screen.category.CategoryScreen
 import com.youshu.app.ui.screen.detail.DetailScreen
@@ -69,7 +71,8 @@ import com.youshu.app.ui.theme.OrangeStart
 import com.youshu.app.ui.theme.TextHint
 import com.youshu.app.ui.viewmodel.LibraryStatusFilter
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.haze
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.hazeSource
 
 private data class BottomNavItem(
     val route: String,
@@ -123,235 +126,247 @@ fun AppNavGraph() {
     ) && !cameraExitGuard
 
     Box(modifier = Modifier.fillMaxSize()) {
-        NavHost(
-            navController = navController,
-            startDestination = Screen.Home.route,
-            modifier = Modifier.fillMaxSize()
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .hazeSource(hazeState)
         ) {
-            composable(Screen.Home.route) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .haze(hazeState)
-                ) {
+            NavHost(
+                navController = navController,
+                startDestination = Screen.Home.route,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                composable(Screen.Home.route) {
                     HomeScreen(
                         onNavigateToDetail = { id -> navController.navigate(Screen.Detail.createRoute(id)) },
+                        onNavigateToEdit = { id -> navController.navigate(Screen.Edit.createRoute(id)) },
                         onNavigateToLibrary = { navigateToTopLevel(Screen.Search.route) },
                         onNavigateToSearchCenter = { navController.navigate(Screen.SearchCenter.route) },
                         onNavigateToExpiry = { navController.navigate(Screen.Expiry.route) }
                     )
                 }
-            }
 
-            composable(Screen.Camera.route) {
-                CameraScreen(
-                    onBack = { navController.popBackStack() },
-                    onDisposed = { cameraExitGuard = false },
-                    onSkipPhoto = {
-                        when (val target = pendingCameraReturn) {
-                            CameraReturnTarget.NewSave,
-                            is CameraReturnTarget.SaveDraft,
-                            null -> {
-                                navController.navigate(Screen.Save.createRoute()) {
-                                    popUpTo(Screen.Camera.route) { inclusive = true }
+                composable(Screen.Camera.route) {
+                    CameraScreen(
+                        onBack = { navController.popBackStack() },
+                        onDisposed = { cameraExitGuard = false },
+                        onSkipPhoto = {
+                            when (val target = pendingCameraReturn) {
+                                CameraReturnTarget.NewSave,
+                                is CameraReturnTarget.SaveDraft,
+                                null -> {
+                                    navController.navigate(Screen.Save.createRoute()) {
+                                        popUpTo(Screen.Camera.route) { inclusive = true }
+                                    }
+                                }
+
+                                is CameraReturnTarget.EditItem -> {
+                                    navController.navigate(Screen.Edit.createRoute(target.itemId)) {
+                                        popUpTo(Screen.Camera.route) { inclusive = true }
+                                    }
                                 }
                             }
+                            pendingCameraReturn = null
+                        },
+                        onPhotoTaken = { uris ->
+                            val encoded = uris.map { it.toString() }
+                            val firstUri = encoded.firstOrNull()
+                            when (val target = pendingCameraReturn) {
+                                CameraReturnTarget.NewSave -> {
+                                    navController.navigate(Screen.Save.createRoute(firstUri, encoded)) {
+                                        popUpTo(Screen.Camera.route) { inclusive = true }
+                                    }
+                                }
 
-                            is CameraReturnTarget.EditItem -> {
-                                navController.navigate(Screen.Edit.createRoute(target.itemId)) {
-                                    popUpTo(Screen.Camera.route) { inclusive = true }
+                                is CameraReturnTarget.EditItem -> {
+                                    navController.navigate(
+                                        Screen.Edit.createRoute(
+                                            itemId = target.itemId,
+                                            imageUri = firstUri,
+                                            imageUris = encoded,
+                                            mode = target.mode.name.lowercase()
+                                        )
+                                    ) {
+                                        popUpTo(Screen.Camera.route) { inclusive = true }
+                                    }
+                                }
+
+                                is CameraReturnTarget.SaveDraft -> {
+                                    navController.navigate(
+                                        Screen.Save.createRoute(
+                                            imageUri = firstUri,
+                                            imageUris = encoded,
+                                            mode = target.mode.name.lowercase()
+                                        )
+                                    ) {
+                                        popUpTo(Screen.Camera.route) { inclusive = true }
+                                    }
+                                }
+
+                                null -> {
+                                    navController.navigate(Screen.Save.createRoute(firstUri, encoded)) {
+                                        popUpTo(Screen.Camera.route) { inclusive = true }
+                                    }
                                 }
                             }
-                        }
-                        pendingCameraReturn = null
-                    },
-                    onPhotoTaken = { uri ->
-                        val encoded = Uri.encode(uri.toString())
-                        when (val target = pendingCameraReturn) {
-                            CameraReturnTarget.NewSave -> {
-                                navController.navigate(Screen.Save.createRoute(encoded)) {
-                                    popUpTo(Screen.Camera.route) { inclusive = true }
-                                }
-                            }
-
-                            is CameraReturnTarget.EditItem -> {
-                                navController.navigate(
-                                    Screen.Edit.createRoute(
-                                        itemId = target.itemId,
-                                        imageUri = encoded,
-                                        mode = target.mode.name.lowercase()
-                                    )
-                                ) {
-                                    popUpTo(Screen.Camera.route) { inclusive = true }
-                                }
-                            }
-
-                            is CameraReturnTarget.SaveDraft -> {
-                                navController.navigate(
-                                    Screen.Save.createRoute(
-                                        imageUri = encoded,
-                                        mode = target.mode.name.lowercase()
-                                    )
-                                ) {
-                                    popUpTo(Screen.Camera.route) { inclusive = true }
-                                }
-                            }
-
-                            null -> {
-                                navController.navigate(Screen.Save.createRoute(encoded)) {
-                                    popUpTo(Screen.Camera.route) { inclusive = true }
-                                }
-                            }
-                        }
-                        pendingCameraReturn = null
-                    }
-                )
-            }
-
-            composable(Screen.SearchCenter.route) {
-                SearchCenterScreen(
-                    onBack = { navController.popBackStack() },
-                    onOpenLibrary = { navigateToTopLevel(Screen.Search.route) },
-                    onNavigateToDetail = { id -> navController.navigate(Screen.Detail.createRoute(id)) }
-                )
-            }
-
-            composable(
-                route = Screen.Save.route,
-                arguments = listOf(
-                    navArgument("imageUri") {
-                        type = NavType.StringType
-                        defaultValue = ""
-                        nullable = true
-                    },
-                    navArgument("mode") {
-                        type = NavType.StringType
-                        defaultValue = SavePhotoMode.APPEND.name.lowercase()
-                    }
-                )
-            ) { backStackEntry ->
-                val encodedUri = backStackEntry.arguments?.getString("imageUri").orEmpty()
-                val mode = backStackEntry.arguments?.getString("mode").orEmpty()
-                val uri = encodedUri.takeIf { it.isNotBlank() }?.let { Uri.parse(Uri.decode(it)) }
-                SaveScreen(
-                    imageUri = uri,
-                    onBack = { navController.popBackStack() },
-                    onSaved = {
-                        navController.navigate(Screen.Home.route) {
-                            popUpTo(Screen.Home.route) { inclusive = true }
-                        }
-                    },
-                    onOpenCamera = { photoMode ->
-                        openCamera(CameraReturnTarget.SaveDraft(photoMode))
-                    }
-                )
-            }
-
-            composable(
-                route = Screen.Detail.route,
-                arguments = listOf(
-                    navArgument("itemId") { type = NavType.LongType },
-                    navArgument("scope") { type = NavType.StringType }
-                )
-            ) { backStackEntry ->
-                val itemId = backStackEntry.arguments?.getLong("itemId") ?: return@composable
-                val scope = backStackEntry.arguments?.getString("scope") ?: Screen.Detail.ScopeAll
-                DetailScreen(
-                    itemId = itemId,
-                    scope = scope,
-                    onBack = { navController.popBackStack() },
-                    onEdit = { id -> navController.navigate(Screen.Edit.createRoute(id)) }
-                )
-            }
-
-            composable(Screen.Search.route) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .haze(hazeState)
-                ) {
-                    SearchScreen(
-                        onNavigateToDetail = { id, filter ->
-                            navController.navigate(Screen.Detail.createRoute(id, filter.toDetailScope()))
+                            pendingCameraReturn = null
                         }
                     )
                 }
-            }
 
-            composable(Screen.Category.route) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .haze(hazeState)
-                ) {
-                    CategoryScreen(
+                composable(Screen.SearchCenter.route) {
+                    SearchCenterScreen(
+                        onBack = { navController.popBackStack() },
+                        onOpenLibrary = { navigateToTopLevel(Screen.Search.route) },
                         onNavigateToDetail = { id -> navController.navigate(Screen.Detail.createRoute(id)) }
                     )
                 }
-            }
 
-            composable(Screen.Expiry.route) {
-                ExpiryScreen(
-                    onBack = { navController.popBackStack() },
-                    onNavigateToDetail = { id -> navController.navigate(Screen.Detail.createRoute(id)) }
-                )
-            }
+                composable(
+                    route = Screen.Save.route,
+                    arguments = listOf(
+                        navArgument("imageUri") {
+                            type = NavType.StringType
+                            defaultValue = ""
+                            nullable = true
+                        },
+                        navArgument("imageUris") {
+                            type = NavType.StringType
+                            defaultValue = ""
+                            nullable = true
+                        },
+                        navArgument("mode") {
+                            type = NavType.StringType
+                            defaultValue = SavePhotoMode.APPEND.name.lowercase()
+                        }
+                    )
+                ) { backStackEntry ->
+                    val encodedUri = backStackEntry.arguments?.getString("imageUri").orEmpty()
+                    val encodedUris = backStackEntry.arguments?.getString("imageUris").orEmpty()
+                    val mode = backStackEntry.arguments?.getString("mode").orEmpty()
+                    val uri = encodedUri.takeIf { it.isNotBlank() }?.let { Uri.parse(Uri.decode(it)) }
+                    val uris = encodedUris
+                        .split(",")
+                        .mapNotNull { value ->
+                            value.takeIf { it.isNotBlank() }?.let { Uri.parse(Uri.decode(it)) }
+                        }
+                    SaveScreen(
+                        imageUri = uri,
+                        pendingImageUris = uris,
+                        onBack = { navController.popBackStack() },
+                        onSaved = {
+                            navController.navigate(Screen.Home.route) {
+                                popUpTo(Screen.Home.route) { inclusive = true }
+                            }
+                        },
+                        onOpenCamera = { photoMode ->
+                            openCamera(CameraReturnTarget.SaveDraft(photoMode))
+                        }
+                    )
+                }
 
-            composable(
-                route = Screen.Edit.route,
-                arguments = listOf(
-                    navArgument("itemId") { type = NavType.LongType },
-                    navArgument("imageUri") {
-                        type = NavType.StringType
-                        defaultValue = ""
-                        nullable = true
-                    },
-                    navArgument("mode") {
-                        type = NavType.StringType
-                        defaultValue = SavePhotoMode.APPEND.name.lowercase()
-                    }
-                )
-            ) { backStackEntry ->
-                val itemId = backStackEntry.arguments?.getLong("itemId") ?: return@composable
-                val encodedUri = backStackEntry.arguments?.getString("imageUri").orEmpty()
-                val mode = backStackEntry.arguments?.getString("mode").orEmpty()
-                val uri = encodedUri.takeIf { it.isNotBlank() }?.let { Uri.parse(Uri.decode(it)) }
-                EditScreen(
-                    itemId = itemId,
-                    pendingImageUri = uri,
-                    pendingPhotoMode = mode.toSavePhotoMode(),
-                    onBack = { navController.popBackStack() },
-                    onSaved = { navController.popBackStack() },
-                    onOpenCamera = { photoMode ->
-                        openCamera(CameraReturnTarget.EditItem(itemId, photoMode))
-                    }
-                )
-            }
+                composable(
+                    route = Screen.Detail.route,
+                    arguments = listOf(
+                        navArgument("itemId") { type = NavType.LongType },
+                        navArgument("scope") { type = NavType.StringType }
+                    )
+                ) { backStackEntry ->
+                    val itemId = backStackEntry.arguments?.getLong("itemId") ?: return@composable
+                    val scope = backStackEntry.arguments?.getString("scope") ?: Screen.Detail.ScopeAll
+                    DetailScreen(
+                        itemId = itemId,
+                        scope = scope,
+                        onBack = { navController.popBackStack() },
+                        onEdit = { id -> navController.navigate(Screen.Edit.createRoute(id)) }
+                    )
+                }
 
-            composable(Screen.Profile.route) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .haze(hazeState)
-                ) {
+                composable(Screen.Search.route) {
+                    SearchScreen(
+                        onNavigateToDetail = { id, filter ->
+                            navController.navigate(Screen.Detail.createRoute(id, filter.toDetailScope()))
+                        },
+                        onNavigateToEdit = { id -> navController.navigate(Screen.Edit.createRoute(id)) }
+                    )
+                }
+
+                composable(Screen.Category.route) {
+                    CategoryScreen(
+                        onNavigateToDetail = { id -> navController.navigate(Screen.Detail.createRoute(id)) },
+                        onNavigateToEdit = { id -> navController.navigate(Screen.Edit.createRoute(id)) }
+                    )
+                }
+
+                composable(Screen.Expiry.route) {
+                    ExpiryScreen(
+                        onBack = { navController.popBackStack() },
+                        onNavigateToDetail = { id -> navController.navigate(Screen.Detail.createRoute(id)) }
+                    )
+                }
+
+                composable(
+                    route = Screen.Edit.route,
+                    arguments = listOf(
+                        navArgument("itemId") { type = NavType.LongType },
+                        navArgument("imageUri") {
+                            type = NavType.StringType
+                            defaultValue = ""
+                            nullable = true
+                        },
+                        navArgument("imageUris") {
+                            type = NavType.StringType
+                            defaultValue = ""
+                            nullable = true
+                        },
+                        navArgument("mode") {
+                            type = NavType.StringType
+                            defaultValue = SavePhotoMode.APPEND.name.lowercase()
+                        }
+                    )
+                ) { backStackEntry ->
+                    val itemId = backStackEntry.arguments?.getLong("itemId") ?: return@composable
+                    val encodedUri = backStackEntry.arguments?.getString("imageUri").orEmpty()
+                    val encodedUris = backStackEntry.arguments?.getString("imageUris").orEmpty()
+                    val mode = backStackEntry.arguments?.getString("mode").orEmpty()
+                    val uri = encodedUri.takeIf { it.isNotBlank() }?.let { Uri.parse(Uri.decode(it)) }
+                    val uris = encodedUris
+                        .split(",")
+                        .mapNotNull { value ->
+                            value.takeIf { it.isNotBlank() }?.let { Uri.parse(Uri.decode(it)) }
+                        }
+                    EditScreen(
+                        itemId = itemId,
+                        pendingImageUri = uri,
+                        pendingImageUris = uris,
+                        pendingPhotoMode = mode.toSavePhotoMode(),
+                        onBack = { navController.popBackStack() },
+                        onSaved = { navController.popBackStack() },
+                        onOpenCamera = { photoMode ->
+                            openCamera(CameraReturnTarget.EditItem(itemId, photoMode))
+                        }
+                    )
+                }
+
+                composable(Screen.Profile.route) {
                     ProfileScreen(
                         onOpenExpiry = { navController.navigate(Screen.Expiry.route) },
                         onOpenTrash = { navController.navigate(Screen.Trash.route) },
                         onOpenSettings = { navController.navigate(Screen.Settings.route) }
                     )
                 }
-            }
 
-            composable(Screen.Trash.route) {
-                TrashScreen(
-                    onBack = { navController.popBackStack() }
-                )
-            }
+                composable(Screen.Trash.route) {
+                    TrashScreen(
+                        onBack = { navController.popBackStack() }
+                    )
+                }
 
-            composable(Screen.Settings.route) {
-                SettingsScreen(
-                    onBack = { navController.popBackStack() }
-                )
+                composable(Screen.Settings.route) {
+                    SettingsScreen(
+                        onBack = { navController.popBackStack() }
+                    )
+                }
             }
         }
 
@@ -417,7 +432,7 @@ private fun YouShuBottomBar(
             containerColor = Color.White.copy(alpha = 0.16f),
             borderColor = Color.White.copy(alpha = 0.72f),
             shadowElevation = 20.dp,
-            blurAlpha = 0.8f
+            blurAlpha = 0.6f
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -447,25 +462,30 @@ private fun YouShuBottomBar(
         Box(
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .offset(y = 10.dp)
-                .size(width = 114.dp, height = 42.dp)
-                .clip(RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
+                .offset(y = 15.dp)
+                .size(width = 126.dp, height = 34.dp)
+                .clip(RoundedCornerShape(bottomStart = 30.dp, bottomEnd = 30.dp))
                 .background(Color.White.copy(alpha = 0f))
         )
 
         Box(
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .offset(y = (-4).dp)
-                .size(60.dp)
+                .offset(y = 4.dp)
+                .size(72.dp)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.92f))
+                .hazeEffect(
+                    state = hazeState,
+                    style = appGlassStyle(blurAlpha = 0.6f)
+                )
+                .background(Color.White.copy(alpha = 0.04f))
+                .border(width = 1.dp, color = Color.White.copy(alpha = 0.68f), shape = CircleShape)
                 .clickable(onClick = onCameraClick),
             contentAlignment = Alignment.Center
         ) {
             Box(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(58.dp)
                     .clip(CircleShape)
                     .background(
                         brush = Brush.linearGradient(
@@ -478,7 +498,7 @@ private fun YouShuBottomBar(
                     imageVector = Icons.Default.CameraAlt,
                     contentDescription = "拍照",
                     tint = Color.White,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(28.dp)
                 )
             }
         }

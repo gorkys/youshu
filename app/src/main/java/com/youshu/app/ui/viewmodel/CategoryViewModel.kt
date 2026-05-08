@@ -3,6 +3,7 @@ package com.youshu.app.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.youshu.app.data.local.entity.Category
+import com.youshu.app.data.local.entity.Item
 import com.youshu.app.data.local.entity.ItemDetail
 import com.youshu.app.data.local.entity.Location
 import com.youshu.app.data.repository.CategoryRepository
@@ -125,6 +126,18 @@ class CategoryViewModel @Inject constructor(
 
     fun getSubLocations(parentId: Long): Flow<List<Location>> {
         return locationRepository.getSubLocations(parentId)
+    }
+
+    fun moveToTrash(item: Item) {
+        viewModelScope.launch {
+            itemRepository.moveToTrash(item)
+        }
+    }
+
+    fun markAsUsed(id: Long) {
+        viewModelScope.launch {
+            itemRepository.markAsUsed(id)
+        }
     }
 
     private fun buildLocationDescendants(locations: List<Location>): Map<Long, Set<Long>> {

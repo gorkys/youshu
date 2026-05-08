@@ -1,8 +1,6 @@
 package com.youshu.app.ui.screen.edit
 
 import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
@@ -69,6 +67,7 @@ private data class ExpiryQuickOption(val label: String, val timestamp: Long)
 fun EditScreen(
     itemId: Long,
     pendingImageUri: Uri?,
+    pendingImageUris: List<Uri>,
     pendingPhotoMode: SavePhotoMode?,
     onBack: () -> Unit,
     onSaved: () -> Unit,
@@ -80,12 +79,6 @@ fun EditScreen(
     val categories by viewModel.categories.collectAsState()
     val locations by viewModel.locations.collectAsState()
     val leafLocations = locations.filter { it.parentId != null }
-
-    val galleryLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetMultipleContents()
-    ) { uris ->
-        viewModel.appendPhotos(context, uris)
-    }
 
     var showAdvanced by remember { mutableStateOf(true) }
     var showDatePicker by remember { mutableStateOf(false) }
@@ -103,11 +96,19 @@ fun EditScreen(
         viewModel.loadItem(itemId)
     }
 
-    LaunchedEffect(pendingImageUri, pendingPhotoMode) {
-        val uri = pendingImageUri ?: return@LaunchedEffect
-        when (pendingPhotoMode) {
-            SavePhotoMode.REPLACE_PRIMARY -> viewModel.replacePrimaryPhoto(context, uri)
-            SavePhotoMode.APPEND, null -> viewModel.appendPhotos(context, listOf(uri))
+    LaunchedEffect(pendingImageUri, pendingImageUris, pendingPhotoMode) {
+        when {
+            pendingPhotoMode == SavePhotoMode.REPLACE_PRIMARY && pendingImageUri != null -> {
+                viewModel.replacePrimaryPhoto(context, pendingImageUri)
+            }
+
+            pendingImageUris.isNotEmpty() -> {
+                viewModel.appendPhotos(context, pendingImageUris)
+            }
+
+            pendingImageUri != null -> {
+                viewModel.appendPhotos(context, listOf(pendingImageUri))
+            }
         }
     }
 
@@ -162,9 +163,11 @@ fun EditScreen(
                 ) {
                     ItemImageGallery(
                         imagePaths = state.imagePaths,
-                        onAddPhoto = { galleryLauncher.launch("image/*") },
-                        onRetakePrimary = { onOpenCamera(SavePhotoMode.REPLACE_PRIMARY) },
-                        onRemoveImage = viewModel::removePhoto
+                        onCapturePrimary = { onOpenCamera(SavePhotoMode.REPLACE_PRIMARY) },
+                        onCaptureDetail = { onOpenCamera(SavePhotoMode.APPEND) },
+                        onSelectNoImage = null,
+                        onRemoveImage = viewModel::removePhoto,
+                        onMoveImage = viewModel::movePhoto
                     )
 
                     Spacer(modifier = Modifier.size(18.dp))

@@ -107,6 +107,14 @@ class EditViewModel @Inject constructor(
         _state.value = _state.value.copy(imagePaths = currentPaths)
     }
 
+    fun movePhoto(fromIndex: Int, toIndex: Int) {
+        val currentPaths = _state.value.imagePaths.toMutableList()
+        if (fromIndex !in currentPaths.indices || toIndex !in currentPaths.indices || fromIndex == toIndex) return
+        val moved = currentPaths.removeAt(fromIndex)
+        currentPaths.add(toIndex, moved)
+        _state.value = _state.value.copy(imagePaths = currentPaths)
+    }
+
     fun updateName(name: String) {
         _state.value = _state.value.copy(name = name)
     }

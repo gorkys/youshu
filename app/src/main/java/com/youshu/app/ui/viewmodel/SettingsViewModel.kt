@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.youshu.app.data.backup.AppBackupManager
 import com.youshu.app.data.update.AppReleaseInfo
+import com.youshu.app.data.update.UpdateCheckResult
 import com.youshu.app.data.update.UpdateRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,9 +31,7 @@ class SettingsViewModel @Inject constructor(
 
     fun exportBackup(targetUri: Uri) {
         viewModelScope.launch {
-            runBusyAction(
-                successMessage = "备份导出完成"
-            ) {
+            runBusyAction(successMessage = "备份导出完成") {
                 backupManager.exportBackup(targetUri)
             }
         }
@@ -40,9 +39,7 @@ class SettingsViewModel @Inject constructor(
 
     fun importBackup(sourceUri: Uri) {
         viewModelScope.launch {
-            runBusyAction(
-                successMessage = "备份导入完成，建议重启应用后检查数据"
-            ) {
+            runBusyAction(successMessage = "备份导入完成，建议重启应用后检查数据") {
                 backupManager.importBackup(sourceUri)
             }
         }
@@ -51,32 +48,45 @@ class SettingsViewModel @Inject constructor(
     fun checkForUpdates() {
         viewModelScope.launch {
             _state.value = _state.value.copy(isBusy = true, message = null)
-            val release = updateRepository.fetchLatestRelease()
-            _state.value = _state.value.copy(
-                isBusy = false,
-                latestRelease = release,
-                message = when {
-                    release == null -> "检查更新失败，请稍后再试"
-                    release.hasUpdate -> "发现新版本 ${release.latestVersion}"
-                    else -> "当前已经是最新版本"
+            when (val result = updateRepository.fetchLatestRelease()) {
+                is UpdateCheckResult.Success -> {
+                    val release = result.release
+                    _state.value = _state.value.copy(
+                        isBusy = false,
+                        latestRelease = release,
+                        message = when {
+                            release.hasUpdate -> "发现新版本 ${release.latestVersion}"
+                            else -> "当前已经是最新版本"
+                        }
+                    )
                 }
-            )
+
+                is UpdateCheckResult.Error -> {
+                    _state.value = _state.value.copy(
+                        isBusy = false,
+                        latestRelease = null,
+                        message = result.message
+                    )
+                }
+            }
         }
     }
 
     fun downloadLatestApk(): Boolean {
         val release = _state.value.latestRelease ?: return false
         val apkUrl = release.apkUrl ?: return false
-        updateRepository.downloadApk(apkUrl, release.latestVersion)
-        _state.value = _state.value.copy(message = "已开始下载更新包")
+        val apkName = release.apkName ?: return false
+        updateRepository.downloadApk(apkUrl, release.latestVersion, apkName)
+        _state.value = _state.value.copy(message = "已开始下载 ${apkName}")
         return true
     }
 
     fun installDownloadedApk(): Boolean {
         val release = _state.value.latestRelease ?: return false
-        val installed = updateRepository.installDownloadedApk(release.latestVersion)
+        val apkName = release.apkName ?: return false
+        val installed = updateRepository.installDownloadedApk(apkName)
         if (!installed) {
-            _state.value = _state.value.copy(message = "未找到已下载的安装包，请先下载")
+            _state.value = _state.value.copy(message = "未找到已下载的安装包，请先完成下载")
         }
         return installed
     }
