@@ -220,7 +220,8 @@ fun AppNavGraph() {
                     SearchCenterScreen(
                         onBack = { navController.popBackStack() },
                         onOpenLibrary = { navigateToTopLevel(Screen.Search.route) },
-                        onNavigateToDetail = { id -> navController.navigate(Screen.Detail.createRoute(id)) }
+                        onNavigateToDetail = { id -> navController.navigate(Screen.Detail.createRoute(id)) },
+                        onNavigateToEdit = { id -> navController.navigate(Screen.Edit.createRoute(id)) }
                     )
                 }
 

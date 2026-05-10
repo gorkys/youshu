@@ -85,4 +85,10 @@ class HomeViewModel @Inject constructor(
             itemRepository.markAsUsed(id)
         }
     }
+
+    fun rateUsedItem(id: Long, rating: Int) {
+        viewModelScope.launch {
+            itemRepository.rateUsedItem(id, rating)
+        }
+    }
 }
