@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -44,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -62,6 +64,7 @@ import com.youshu.app.ui.components.EditorSelectionChip
 import com.youshu.app.ui.components.GradientButton
 import com.youshu.app.ui.components.ItemImageGallery
 import com.youshu.app.ui.components.QuantityStepper
+import com.youshu.app.ui.theme.OrangeStart
 import com.youshu.app.ui.theme.TextHint
 import com.youshu.app.ui.theme.TextSecondary
 import com.youshu.app.ui.viewmodel.SaveViewModel
@@ -74,6 +77,10 @@ private data class ExpiryQuickOption(val label: String, val timestamp: Long)
 fun SaveScreen(
     imageUri: Uri?,
     pendingImageUris: List<Uri>,
+    resultImageUri: Uri?,
+    resultImageUris: List<Uri>,
+    resultPhotoMode: SavePhotoMode?,
+    onConsumePendingResult: () -> Unit,
     onBack: () -> Unit,
     onSaved: () -> Unit,
     onOpenCamera: (mode: SavePhotoMode) -> Unit,
@@ -101,6 +108,25 @@ fun SaveScreen(
         when {
             pendingImageUris.isNotEmpty() -> viewModel.initFromPhotos(context, pendingImageUris, null, null)
             else -> viewModel.initFromPhoto(context, imageUri, null, null)
+        }
+    }
+
+    LaunchedEffect(resultImageUri, resultImageUris, resultPhotoMode) {
+        when {
+            resultPhotoMode == SavePhotoMode.REPLACE_PRIMARY && resultImageUri != null -> {
+                viewModel.replacePrimaryPhoto(context, resultImageUri)
+            }
+
+            resultImageUris.isNotEmpty() -> {
+                viewModel.appendPhotos(context, resultImageUris)
+            }
+
+            resultImageUri != null -> {
+                viewModel.appendPhotos(context, listOf(resultImageUri))
+            }
+        }
+        if (resultImageUri != null || resultImageUris.isNotEmpty() || resultPhotoMode != null) {
+            onConsumePendingResult()
         }
     }
 
@@ -202,6 +228,15 @@ fun SaveScreen(
                             onRemoveImage = viewModel::removePhoto,
                             onMoveImage = viewModel::movePhoto
                         )
+
+                        if (state.imagePaths.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            AiRecognitionStatusCard(
+                                message = state.aiStatusMessage,
+                                isRecognizing = state.isAiRecognizing,
+                                onRetry = viewModel::recognizeWithAiIfPossible
+                            )
+                        }
 
                         Spacer(modifier = Modifier.height(18.dp))
                         EditorSectionLabel(label = "物品名称", tag = "AI识别")
@@ -379,4 +414,59 @@ fun SaveScreen(
 enum class SavePhotoMode {
     APPEND,
     REPLACE_PRIMARY
+}
+
+@Composable
+private fun AiRecognitionStatusCard(
+    message: String?,
+    isRecognizing: Boolean,
+    onRetry: () -> Unit
+) {
+    AppSurfaceCard(
+        shape = RoundedCornerShape(20.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+        containerColor = Color(0xFFFFF6EA),
+        shadowElevation = 6.dp
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .background(OrangeStart.copy(alpha = 0.14f), RoundedCornerShape(14.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.AutoAwesome,
+                    contentDescription = null,
+                    tint = OrangeStart,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = if (isRecognizing) "AI 正在识别" else "AI 识别建议",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF6B4B21)
+                )
+                Text(
+                    text = message ?: "将根据图片自动填入名称、分类、位置和有效期建议。",
+                    fontSize = 12.sp,
+                    color = TextSecondary,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+            Text(
+                text = if (isRecognizing) "处理中" else "重新识别",
+                fontSize = 12.sp,
+                color = if (isRecognizing) TextHint else OrangeStart,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(14.dp))
+                    .clickable(enabled = !isRecognizing, onClick = onRetry)
+                    .padding(horizontal = 10.dp, vertical = 8.dp)
+            )
+        }
+    }
 }

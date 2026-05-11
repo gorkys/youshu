@@ -4,6 +4,8 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.youshu.app.data.ai.AiCallResult
+import com.youshu.app.data.ai.AiRepository
 import com.youshu.app.data.local.entity.Category
 import com.youshu.app.data.local.entity.Item
 import com.youshu.app.data.local.entity.Location
@@ -18,6 +20,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.ZoneId
 import javax.inject.Inject
 
 data class SaveItemState(
@@ -30,6 +34,8 @@ data class SaveItemState(
     val expireTime: Long? = null,
     val note: String = "",
     val imagePaths: List<String> = emptyList(),
+    val aiStatusMessage: String? = null,
+    val isAiRecognizing: Boolean = false,
     val isSaving: Boolean = false,
     val isSaved: Boolean = false
 )
@@ -38,7 +44,8 @@ data class SaveItemState(
 class SaveViewModel @Inject constructor(
     private val itemRepository: ItemRepository,
     private val categoryRepository: CategoryRepository,
-    private val locationRepository: LocationRepository
+    private val locationRepository: LocationRepository,
+    private val aiRepository: AiRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SaveItemState())
@@ -66,6 +73,7 @@ class SaveViewModel @Inject constructor(
                 }
             }
         }
+        recognizeWithAiIfPossible()
     }
 
     fun initFromPhotos(context: Context, imageUris: List<Uri>, aiName: String?, aiCategory: String?) {
@@ -84,6 +92,7 @@ class SaveViewModel @Inject constructor(
                 }
             }
         }
+        recognizeWithAiIfPossible()
     }
 
     fun appendPhotos(context: Context, uris: List<Uri>) {
@@ -93,6 +102,7 @@ class SaveViewModel @Inject constructor(
         _state.value = _state.value.copy(
             imagePaths = (_state.value.imagePaths + savedPaths).distinct()
         )
+        recognizeWithAiIfPossible()
     }
 
     fun replacePrimaryPhoto(context: Context, uri: Uri) {
@@ -105,6 +115,28 @@ class SaveViewModel @Inject constructor(
             currentPaths[0] = savedPath
         }
         _state.value = _state.value.copy(imagePaths = currentPaths.distinct())
+        recognizeWithAiIfPossible()
+    }
+
+    fun recognizeWithAiIfPossible() {
+        val current = _state.value
+        if (current.isAiRecognizing || current.imagePaths.isEmpty()) return
+
+        _state.value = current.copy(
+            isAiRecognizing = true,
+            aiStatusMessage = "AI 正在识别图片..."
+        )
+        viewModelScope.launch {
+            when (val result = aiRepository.recognizeItem(current.imagePaths, current.note.takeIf { it.isNotBlank() })) {
+                is AiCallResult.Success -> applyAiSuggestion(result.data)
+                is AiCallResult.Error -> {
+                    _state.value = _state.value.copy(
+                        isAiRecognizing = false,
+                        aiStatusMessage = result.message
+                    )
+                }
+            }
+        }
     }
 
     fun removePhoto(index: Int) {
@@ -155,6 +187,10 @@ class SaveViewModel @Inject constructor(
         _state.value = _state.value.copy(note = note)
     }
 
+    fun consumeAiStatusMessage() {
+        _state.value = _state.value.copy(aiStatusMessage = null)
+    }
+
     fun save() {
         val current = _state.value
         if (current.name.isBlank() || current.isSaving) return
@@ -181,5 +217,43 @@ class SaveViewModel @Inject constructor(
 
     fun reset() {
         _state.value = SaveItemState()
+    }
+
+    private fun applyAiSuggestion(suggestion: com.youshu.app.data.ai.AiItemSuggestion) {
+        val current = _state.value
+        val matchedCategory = suggestion.categoryName?.let { name ->
+            categories.value.firstOrNull { it.name.equals(name, ignoreCase = true) }
+        }
+        val matchedLocation = suggestion.locationName?.let { name ->
+            locations.value.firstOrNull { it.name.equals(name, ignoreCase = true) }
+        }
+
+        _state.value = current.copy(
+            name = current.name.ifBlank { suggestion.name.orEmpty() },
+            categoryId = current.categoryId ?: matchedCategory?.id,
+            locationId = current.locationId ?: matchedLocation?.id,
+            quantity = if (current.quantity == 1) suggestion.quantity ?: current.quantity else current.quantity,
+            unit = if (current.unit.isBlank() || current.unit == "件") suggestion.unit ?: current.unit else current.unit,
+            price = current.price.ifBlank { suggestion.price?.toString().orEmpty() },
+            expireTime = current.expireTime ?: suggestion.expireDate.toEpochMillisOrNull(),
+            note = current.note.ifBlank { suggestion.note.orEmpty() },
+            isAiRecognizing = false,
+            aiStatusMessage = buildAiResultMessage(suggestion.confidence)
+        )
+    }
+
+    private fun buildAiResultMessage(confidence: Double?): String {
+        val confidenceText = confidence?.let { "，置信度 ${(it * 100).toInt()}%" }.orEmpty()
+        return "AI 已填入识别建议$confidenceText，请确认后保存"
+    }
+
+    private fun String?.toEpochMillisOrNull(): Long? {
+        val value = this?.trim()?.takeIf { it.isNotBlank() } ?: return null
+        return runCatching {
+            LocalDate.parse(value)
+                .atStartOfDay(ZoneId.systemDefault())
+                .toInstant()
+                .toEpochMilli()
+        }.getOrNull()
     }
 }

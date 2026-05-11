@@ -1,6 +1,7 @@
 package com.youshu.app.di
 
 import android.content.Context
+import com.youshu.app.data.local.dao.AiModelConfigDao
 import com.youshu.app.data.local.dao.CategoryDao
 import com.youshu.app.data.local.dao.ItemDao
 import com.youshu.app.data.local.dao.LocationDao
@@ -30,4 +31,7 @@ object DatabaseModule {
 
     @Provides
     fun provideLocationDao(database: AppDatabase): LocationDao = database.locationDao()
+
+    @Provides
+    fun provideAiModelConfigDao(database: AppDatabase): AiModelConfigDao = database.aiModelConfigDao()
 }

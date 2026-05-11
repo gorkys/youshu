@@ -9,13 +9,16 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.youshu.app.data.local.dao.CategoryDao
 import com.youshu.app.data.local.dao.ItemDao
 import com.youshu.app.data.local.dao.LocationDao
+import com.youshu.app.data.local.dao.AiModelConfigDao
+import com.youshu.app.data.local.entity.AiModelConfig
 import com.youshu.app.data.local.entity.Category
 import com.youshu.app.data.local.entity.Item
 import com.youshu.app.data.local.entity.Location
+import com.youshu.app.util.LegacyTextNormalizer
 
 @Database(
-    entities = [Item::class, Category::class, Location::class],
-    version = 4,
+    entities = [Item::class, Category::class, Location::class, AiModelConfig::class],
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -23,6 +26,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun itemDao(): ItemDao
     abstract fun categoryDao(): CategoryDao
     abstract fun locationDao(): LocationDao
+    abstract fun aiModelConfigDao(): AiModelConfigDao
 
     companion object {
         @Volatile
@@ -62,6 +66,15 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                SeedHelper.createAiModelConfigTable(db)
+                SeedHelper.ensureAiModelSeedData(db)
+                SeedHelper.normalizeLegacyData(db)
+                SeedHelper.ensureSeedData(db)
+            }
+        }
+
         fun buildDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -69,7 +82,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "youshu.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .addCallback(PrepopulateCallback())
                     .build()
                     .also { INSTANCE = it }
@@ -80,12 +93,14 @@ abstract class AppDatabase : RoomDatabase() {
     private class PrepopulateCallback : Callback() {
         override fun onCreate(db: SupportSQLiteDatabase) {
             super.onCreate(db)
+            SeedHelper.ensureAiModelSeedData(db)
             SeedHelper.ensureSeedData(db)
         }
 
         override fun onOpen(db: SupportSQLiteDatabase) {
             super.onOpen(db)
             SeedHelper.normalizeLegacyData(db)
+            SeedHelper.ensureAiModelSeedData(db)
             SeedHelper.ensureSeedData(db)
         }
     }
@@ -104,43 +119,6 @@ private object SeedHelper {
         "储物间" to listOf("收纳架")
     )
 
-    private val categoryReplacements = listOf(
-        "椋熷搧" to "食品",
-        "鑽搧" to "药品",
-        "鏃ョ敤鍝�" to "日用品",
-        "鏁扮爜" to "数码",
-        "琛ｇ墿" to "衣物",
-        "鏂囧叿" to "文具",
-        "宸ュ叿" to "工具",
-        "鍏朵粬" to "其他"
-    )
-
-    private val locationReplacements = listOf(
-        "鎴戠殑瀹�" to "我的家",
-        "鍘ㄦ埧" to "厨房",
-        "鍐扮" to "冰箱",
-        "姗辨煖" to "橱柜",
-        "鍙伴潰" to "台面",
-        "瀹㈠巺" to "客厅",
-        "鐢佃鏌�" to "电视柜",
-        "鑼跺嚑" to "茶几",
-        "涔︽灦" to "书架",
-        "鍗у" to "卧室",
-        "琛ｆ煖" to "衣柜",
-        "搴婂ご鏌�" to "床头柜",
-        "姊冲鍙�" to "梳妆台",
-        "鍗敓闂�" to "卫生间",
-        "娲楁墜鍙�" to "洗手台",
-        "娣嬫荡闂�" to "淋浴间",
-        "闃冲彴" to "阳台",
-        "鍌ㄧ墿鏌�" to "储物柜",
-        "涔︽埧" to "书房",
-        "涔︽" to "书桌",
-        "涔︽煖" to "书柜",
-        "鍌ㄧ墿闂�" to "储物间",
-        "鏀剁撼鏋�" to "收纳架"
-    )
-
     fun ensureSeedData(db: SupportSQLiteDatabase) {
         defaultCategories.forEach { ensureCategory(db, it) }
 
@@ -153,18 +131,66 @@ private object SeedHelper {
         }
     }
 
+    fun createAiModelConfigTable(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS ai_model_configs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                alias TEXT NOT NULL,
+                provider TEXT NOT NULL,
+                endpoint TEXT NOT NULL,
+                modelName TEXT NOT NULL,
+                apiKey TEXT NOT NULL,
+                supportsVision INTEGER NOT NULL,
+                isDefault INTEGER NOT NULL,
+                createdAt INTEGER NOT NULL,
+                updatedAt INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_ai_model_configs_isDefault ON ai_model_configs(isDefault)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_ai_model_configs_provider ON ai_model_configs(provider)")
+    }
+
+    fun ensureAiModelSeedData(db: SupportSQLiteDatabase) {
+        createAiModelConfigTable(db)
+        val count = db.query("SELECT COUNT(*) FROM ai_model_configs").useCursor { cursor ->
+            if (cursor.moveToFirst()) cursor.getLong(0) else 0L
+        }
+        if (count > 0L) return
+
+        val now = System.currentTimeMillis()
+        db.execSQL(
+            """
+            INSERT INTO ai_model_configs
+                (alias, provider, endpoint, modelName, apiKey, supportsVision, isDefault, createdAt, updatedAt)
+            VALUES
+                ('OpenAI Compatible', 'openai-compatible', 'https://api.openai.com/v1', 'gpt-4o-mini', '', 1, 1, $now, $now)
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            INSERT INTO ai_model_configs
+                (alias, provider, endpoint, modelName, apiKey, supportsVision, isDefault, createdAt, updatedAt)
+            VALUES
+                ('Ollama Local', 'ollama', 'http://127.0.0.1:11434/v1', 'llava', '', 1, 0, $now, $now)
+            """.trimIndent()
+        )
+    }
+
     fun normalizeLegacyData(db: SupportSQLiteDatabase) {
-        categoryReplacements.forEach { (legacy, correct) ->
+        LegacyTextNormalizer.categoryReplacements.forEach { (legacy, correct) ->
             db.execSQL(
                 "UPDATE categories SET name = '${correct.sql()}' WHERE name = '${legacy.sql()}'"
             )
         }
-        locationReplacements.forEach { (legacy, correct) ->
+        LegacyTextNormalizer.locationReplacements.forEach { (legacy, correct) ->
             db.execSQL(
                 "UPDATE locations SET name = '${correct.sql()}' WHERE name = '${legacy.sql()}'"
             )
         }
-        db.execSQL("UPDATE items SET unit = '件' WHERE unit IN ('浠�', '娑?', '')")
+        val legacyUnits = LegacyTextNormalizer.legacyUnitNames.joinToString { "'${it.sql()}'" }
+        db.execSQL("UPDATE items SET unit = '件' WHERE unit IN ($legacyUnits)")
     }
 
     private fun ensureCategory(db: SupportSQLiteDatabase, name: String) {
@@ -174,12 +200,13 @@ private object SeedHelper {
     }
 
     private fun ensureHomeRoot(db: SupportSQLiteDatabase): Long {
-        val canonicalName = "我的家"
-        val legacyName = "鎴戠殑瀹�"
+        val canonicalName = LegacyTextNormalizer.HOME_ROOT_NAME
+        val legacyNames = LegacyTextNormalizer.aliases(canonicalName)
+            .joinToString { "'${it.sql()}'" }
 
         db.execSQL(
             "UPDATE locations SET name = '${canonicalName.sql()}' " +
-                "WHERE parentId IS NULL AND name IN ('${canonicalName.sql()}', '${legacyName.sql()}')"
+                "WHERE parentId IS NULL AND name IN ($legacyNames)"
         )
 
         val rootIds = mutableListOf<Long>()

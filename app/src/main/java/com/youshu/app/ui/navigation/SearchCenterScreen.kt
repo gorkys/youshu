@@ -81,17 +81,12 @@ fun SearchCenterScreen(
     val query by viewModel.searchQuery.collectAsState()
     val history by viewModel.searchHistory.collectAsState()
     val allItems by viewModel.allItems.collectAsState()
+    val aiSearchMessage by viewModel.aiSearchMessage.collectAsState()
+    val isAiSearching by viewModel.isAiSearching.collectAsState()
     var openedItemId by remember { mutableStateOf<Long?>(null) }
     var pendingDeleteItem by remember { mutableStateOf<Item?>(null) }
 
-    val results = allItems.filter { itemDetail ->
-        query.isNotBlank() && listOf(
-            itemDetail.item.name,
-            itemDetail.categoryName.orEmpty(),
-            itemDetail.locationName.orEmpty(),
-            itemDetail.item.note
-        ).any { it.contains(query, ignoreCase = true) }
-    }
+    val results = viewModel.searchResults(allItems)
 
     Box(
         modifier = Modifier
@@ -132,12 +127,36 @@ fun SearchCenterScreen(
                     value = query,
                     onValueChange = viewModel::updateSearchQuery,
                     placeholder = "例如：冰箱里有什么快过期的",
-                    onSearch = {
-                        if (query.isNotBlank()) {
-                            viewModel.rememberSearch(query)
+                    onSearch = viewModel::runAiSearch
+                )
+                if (query.isNotBlank()) {
+                    Spacer(modifier = Modifier.size(10.dp))
+                    AppSurfaceCard(
+                        shadowElevation = 8.dp,
+                        shape = RoundedCornerShape(20.dp),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+                        containerColor = Color(0xFFFFF6EA)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.AutoAwesome,
+                                contentDescription = null,
+                                tint = OrangeStart,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.size(8.dp))
+                            Text(
+                                text = when {
+                                    isAiSearching -> "AI 正在理解搜索条件..."
+                                    aiSearchMessage != null -> aiSearchMessage.orEmpty()
+                                    else -> "按回车或搜索键启用 AI 语义搜索，失败时自动使用普通搜索。"
+                                },
+                                fontSize = 12.sp,
+                                color = TextSecondary
+                            )
                         }
                     }
-                )
+                }
             }
 
             if (query.isBlank()) {
@@ -188,6 +207,7 @@ fun SearchCenterScreen(
                                     .clickable {
                                         viewModel.updateSearchQuery(hint)
                                         viewModel.rememberSearch(hint)
+                                        viewModel.runAiSearch()
                                     }
                                     .padding(horizontal = 14.dp, vertical = 10.dp)
                             ) {
@@ -239,6 +259,7 @@ fun SearchCenterScreen(
                                         .background(Color(0xFFF8F6FC))
                                         .clickable {
                                             viewModel.updateSearchQuery(record)
+                                            viewModel.runAiSearch()
                                         }
                                         .padding(horizontal = 12.dp, vertical = 9.dp)
                                 ) {

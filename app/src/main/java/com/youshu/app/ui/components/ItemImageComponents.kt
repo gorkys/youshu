@@ -23,7 +23,9 @@ import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -38,11 +40,11 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
 import com.youshu.app.ui.theme.OrangeStart
 import com.youshu.app.ui.theme.TextHint
 import com.youshu.app.ui.theme.TextPrimary
-import kotlin.math.roundToInt
 
 @Composable
 fun ItemImageGallery(
@@ -78,6 +80,8 @@ fun ItemImageGallery(
     }
 
     var draggingIndex by remember { mutableIntStateOf(-1) }
+    var draggingPath by remember { mutableStateOf<String?>(null) }
+    var dragOffsetX by remember { mutableFloatStateOf(0f) }
     val itemWidth = 120f
 
     Column(modifier = modifier) {
@@ -90,22 +94,37 @@ fun ItemImageGallery(
             modifier = Modifier.padding(top = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            itemsIndexed(imagePaths, key = { index, path -> "$index-$path" }) { index, path ->
+            itemsIndexed(imagePaths, key = { _, path -> path }) { index, path ->
                 DraggableImageCard(
                     imagePath = path,
                     title = if (index == 0) "主图" else "细节图",
                     onRemove = { onRemoveImage(index) },
                     onMove = { deltaX ->
-                        val targetIndex = (index + (deltaX / itemWidth).roundToInt())
-                            .coerceIn(0, imagePaths.lastIndex)
-                        if (targetIndex != index) {
-                            onMoveImage(index, targetIndex)
+                        dragOffsetX += deltaX
+                        val currentIndex = imagePaths.indexOf(path).takeIf { it >= 0 } ?: index
+                        val targetIndex = when {
+                            dragOffsetX > itemWidth / 2 && currentIndex < imagePaths.lastIndex -> currentIndex + 1
+                            dragOffsetX < -itemWidth / 2 && currentIndex > 0 -> currentIndex - 1
+                            else -> currentIndex
+                        }
+                        if (targetIndex != currentIndex) {
+                            onMoveImage(currentIndex, targetIndex)
                             draggingIndex = targetIndex
+                            dragOffsetX -= (targetIndex - currentIndex) * itemWidth
                         }
                     },
-                    onDragStart = { draggingIndex = index },
-                    onDragEnd = { draggingIndex = -1 },
-                    isDragging = draggingIndex == index
+                    onDragStart = {
+                        draggingIndex = index
+                        draggingPath = path
+                        dragOffsetX = 0f
+                    },
+                    onDragEnd = {
+                        draggingIndex = -1
+                        draggingPath = null
+                        dragOffsetX = 0f
+                    },
+                    isDragging = draggingPath == path,
+                    dragOffsetX = if (draggingPath == path) dragOffsetX else 0f
                 )
             }
             item {
@@ -129,12 +148,15 @@ private fun DraggableImageCard(
     onMove: (Float) -> Unit,
     onDragStart: () -> Unit,
     onDragEnd: () -> Unit,
-    isDragging: Boolean
+    isDragging: Boolean,
+    dragOffsetX: Float
 ) {
     Box(
         modifier = Modifier
             .size(width = 120.dp, height = 120.dp)
+            .zIndex(if (isDragging) 1f else 0f)
             .graphicsLayer {
+                translationX = dragOffsetX
                 scaleX = if (isDragging) 1.03f else 1f
                 scaleY = if (isDragging) 1.03f else 1f
                 alpha = if (isDragging) 0.92f else 1f

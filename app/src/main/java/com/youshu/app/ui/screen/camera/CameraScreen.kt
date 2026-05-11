@@ -73,7 +73,8 @@ import java.util.concurrent.TimeUnit
 
 private enum class CameraTab(val label: String) {
     GALLERY("图库"),
-    CAMERA("拍摄")
+    CAMERA("拍摄"),
+    NO_IMAGE("无图")
 }
 
 @Composable
@@ -202,7 +203,12 @@ fun CameraScreen(
                     .fillMaxSize()
                     .background(Color(0xFF181818))
             ) {
-                if (capturedUris.isEmpty()) {
+                if (selectedTab == CameraTab.NO_IMAGE) {
+                    NoImageState(
+                        modifier = Modifier.align(Alignment.Center),
+                        onSkipPhoto = onSkipPhoto
+                    )
+                } else if (capturedUris.isEmpty()) {
                     EmptyGalleryState(
                         modifier = Modifier.align(Alignment.Center),
                         onPickGallery = { galleryLauncher.launch("image/*") }
@@ -408,9 +414,15 @@ fun CameraScreen(
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.clickable {
-                            selectedTab = tab
-                            if (tab == CameraTab.GALLERY && capturedUris.isEmpty()) {
-                                galleryLauncher.launch("image/*")
+                            when (tab) {
+                                CameraTab.NO_IMAGE -> onSkipPhoto()
+                                CameraTab.GALLERY -> {
+                                    selectedTab = tab
+                                    if (capturedUris.isEmpty()) {
+                                        galleryLauncher.launch("image/*")
+                                    }
+                                }
+                                CameraTab.CAMERA -> selectedTab = tab
                             }
                         }
                     ) {
@@ -431,6 +443,44 @@ fun CameraScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun NoImageState(
+    modifier: Modifier = Modifier,
+    onSkipPhoto: () -> Unit
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "不添加图片",
+            color = Color.White,
+            fontSize = 18.sp
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "直接进入录入阶段，后续仍可补拍图片",
+            color = Color.White.copy(alpha = 0.72f),
+            fontSize = 13.sp
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(999.dp))
+                .background(Color(0xFFFFC44A))
+                .clickable(onClick = onSkipPhoto)
+                .padding(horizontal = 18.dp, vertical = 11.dp)
+        ) {
+            Text(
+                text = "开始录入",
+                color = Color.Black,
+                fontSize = 14.sp,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+            )
         }
     }
 }

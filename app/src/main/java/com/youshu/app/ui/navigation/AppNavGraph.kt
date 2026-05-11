@@ -92,6 +92,9 @@ private val bottomNavItems = listOf(
 internal const val EDIT_RESULT_IMAGE_URI = "edit_result_image_uri"
 internal const val EDIT_RESULT_IMAGE_URIS = "edit_result_image_uris"
 internal const val EDIT_RESULT_MODE = "edit_result_mode"
+internal const val SAVE_RESULT_IMAGE_URI = "save_result_image_uri"
+internal const val SAVE_RESULT_IMAGE_URIS = "save_result_image_uris"
+internal const val SAVE_RESULT_MODE = "save_result_mode"
 
 @Composable
 fun AppNavGraph() {
@@ -158,11 +161,17 @@ fun AppNavGraph() {
                         onSkipPhoto = {
                             when (val target = pendingCameraReturn) {
                                 CameraReturnTarget.NewSave,
-                                is CameraReturnTarget.SaveDraft,
                                 null -> {
                                     navController.navigate(Screen.Save.createRoute()) {
                                         popUpTo(Screen.Camera.route) { inclusive = true }
                                     }
+                                }
+
+                                is CameraReturnTarget.SaveDraft -> {
+                                    navController.previousBackStackEntry
+                                        ?.savedStateHandle
+                                        ?.set(SAVE_RESULT_MODE, target.mode.name.lowercase())
+                                    navController.popBackStack()
                                 }
 
                                 is CameraReturnTarget.EditItem -> {
@@ -194,15 +203,12 @@ fun AppNavGraph() {
                                 }
 
                                 is CameraReturnTarget.SaveDraft -> {
-                                    navController.navigate(
-                                        Screen.Save.createRoute(
-                                            imageUri = firstUri,
-                                            imageUris = encoded,
-                                            mode = target.mode.name.lowercase()
-                                        )
-                                    ) {
-                                        popUpTo(Screen.Camera.route) { inclusive = true }
+                                    navController.previousBackStackEntry?.savedStateHandle?.apply {
+                                        set(SAVE_RESULT_IMAGE_URI, firstUri)
+                                        set(SAVE_RESULT_IMAGE_URIS, encoded)
+                                        set(SAVE_RESULT_MODE, target.mode.name.lowercase())
                                     }
+                                    navController.popBackStack()
                                 }
 
                                 null -> {
@@ -246,7 +252,15 @@ fun AppNavGraph() {
                 ) { backStackEntry ->
                     val encodedUri = backStackEntry.arguments?.getString("imageUri").orEmpty()
                     val encodedUris = backStackEntry.arguments?.getString("imageUris").orEmpty()
-                    val mode = backStackEntry.arguments?.getString("mode").orEmpty()
+                    val resultImageUri by backStackEntry.savedStateHandle
+                        .getStateFlow<String?>(SAVE_RESULT_IMAGE_URI, null)
+                        .collectAsState()
+                    val resultImageUris by backStackEntry.savedStateHandle
+                        .getStateFlow(SAVE_RESULT_IMAGE_URIS, emptyList<String>())
+                        .collectAsState()
+                    val resultMode by backStackEntry.savedStateHandle
+                        .getStateFlow<String?>(SAVE_RESULT_MODE, null)
+                        .collectAsState()
                     val uri = encodedUri.takeIf { it.isNotBlank() }?.let { Uri.parse(Uri.decode(it)) }
                     val uris = encodedUris
                         .split(",")
@@ -256,6 +270,14 @@ fun AppNavGraph() {
                     SaveScreen(
                         imageUri = uri,
                         pendingImageUris = uris,
+                        resultImageUri = resultImageUri?.let(Uri::parse),
+                        resultImageUris = resultImageUris.map(Uri::parse),
+                        resultPhotoMode = resultMode?.toSavePhotoMode(),
+                        onConsumePendingResult = {
+                            backStackEntry.savedStateHandle.remove<String>(SAVE_RESULT_IMAGE_URI)
+                            backStackEntry.savedStateHandle.remove<List<String>>(SAVE_RESULT_IMAGE_URIS)
+                            backStackEntry.savedStateHandle.remove<String>(SAVE_RESULT_MODE)
+                        },
                         onBack = { navController.popBackStack() },
                         onSaved = {
                             navController.navigate(Screen.Home.route) {

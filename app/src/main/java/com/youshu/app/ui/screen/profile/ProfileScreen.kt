@@ -25,14 +25,15 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -47,6 +48,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.youshu.app.data.ai.AiProviders
 import com.youshu.app.ui.components.AppDecorativeBackground
 import com.youshu.app.ui.components.AppDialog
 import com.youshu.app.ui.components.AppSurfaceCard
@@ -59,13 +61,6 @@ import com.youshu.app.ui.theme.TextSecondary
 import com.youshu.app.ui.viewmodel.ProfileViewModel
 import com.youshu.app.util.DateUtil
 
-private data class AiModelItem(
-    val alias: String,
-    val provider: String,
-    val endpoint: String,
-    val apiKey: String
-)
-
 @Composable
 fun ProfileScreen(
     onOpenExpiry: () -> Unit,
@@ -77,21 +72,19 @@ fun ProfileScreen(
     val expiringCount by viewModel.expiringCount.collectAsState()
     val totalValue by viewModel.totalValue.collectAsState()
     val trashCount by viewModel.trashCount.collectAsState()
-
-    val models = remember {
-        mutableStateListOf(
-            AiModelItem("默认云端模型", "OpenAI Compatible", "https://api.example.com/v1", "sk-demo-default"),
-            AiModelItem("本地模型", "Ollama", "http://127.0.0.1:11434", "")
-        )
-    }
+    val models by viewModel.aiModels.collectAsState()
+    val aiModelMessage by viewModel.aiModelMessage.collectAsState()
     var showModelDialog by remember { mutableStateOf(false) }
     var showAddModelDialog by remember { mutableStateOf(false) }
     var infoDialogTitle by remember { mutableStateOf<String?>(null) }
     var infoDialogMessage by remember { mutableStateOf<String?>(null) }
     var newAlias by remember { mutableStateOf("") }
-    var newProvider by remember { mutableStateOf("") }
+    var newProvider by remember { mutableStateOf(AiProviders.OPENAI_COMPATIBLE) }
     var newEndpoint by remember { mutableStateOf("") }
+    var newModelName by remember { mutableStateOf("") }
     var newApiKey by remember { mutableStateOf("") }
+    var newSupportsVision by remember { mutableStateOf(true) }
+    var newIsDefault by remember { mutableStateOf(false) }
 
     Box {
         AppDecorativeBackground()
@@ -249,9 +242,12 @@ fun ProfileScreen(
             confirmText = "新增模型",
             onConfirm = {
                 newAlias = ""
-                newProvider = ""
+                newProvider = AiProviders.OPENAI_COMPATIBLE
                 newEndpoint = ""
+                newModelName = ""
                 newApiKey = ""
+                newSupportsVision = true
+                newIsDefault = models.none { it.isDefault }
                 showAddModelDialog = true
             }
         ) {
@@ -262,7 +258,7 @@ fun ProfileScreen(
                     color = TextHint
                 )
             } else {
-                models.forEachIndexed { index, model ->
+                models.forEach { model ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
@@ -285,11 +281,43 @@ fun ProfileScreen(
                                 modifier = Modifier.padding(top = 2.dp)
                             )
                         }
+                        if (!model.isDefault) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(OrangeStart.copy(alpha = 0.12f))
+                                    .clickable { viewModel.setDefaultAiModel(model) }
+                                    .padding(horizontal = 10.dp, vertical = 8.dp)
+                            ) {
+                                Text(
+                                    text = "默认",
+                                    color = OrangeStart,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            Spacer(modifier = Modifier.size(8.dp))
+                        }
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(OrangeStart.copy(alpha = 0.12f))
+                                .clickable { viewModel.testAiModel(model) }
+                                .padding(horizontal = 10.dp, vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = "测试",
+                                color = OrangeStart,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                        Spacer(modifier = Modifier.size(8.dp))
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(14.dp))
                                 .background(StatusExpired.copy(alpha = 0.12f))
-                                .clickable { models.removeAt(index) }
+                                .clickable { viewModel.deleteAiModel(model) }
                                 .padding(horizontal = 10.dp, vertical = 8.dp)
                         ) {
                             Text(
@@ -310,24 +338,47 @@ fun ProfileScreen(
             alias = newAlias,
             provider = newProvider,
             endpoint = newEndpoint,
+            modelName = newModelName,
             apiKey = newApiKey,
+            supportsVision = newSupportsVision,
+            isDefault = newIsDefault,
             onAliasChange = { newAlias = it },
             onProviderChange = { newProvider = it },
             onEndpointChange = { newEndpoint = it },
+            onModelNameChange = { newModelName = it },
             onApiKeyChange = { newApiKey = it },
+            onSupportsVisionChange = { newSupportsVision = it },
+            onIsDefaultChange = { newIsDefault = it },
             onDismissRequest = { showAddModelDialog = false },
             onConfirm = {
-                models.add(
-                    AiModelItem(
-                        alias = newAlias.trim(),
-                        provider = newProvider.trim(),
-                        endpoint = newEndpoint.trim(),
-                        apiKey = newApiKey.trim()
-                    )
+                viewModel.saveAiModel(
+                    alias = newAlias,
+                    provider = newProvider,
+                    endpoint = newEndpoint,
+                    modelName = newModelName,
+                    apiKey = newApiKey,
+                    supportsVision = newSupportsVision,
+                    isDefault = newIsDefault
                 )
                 showAddModelDialog = false
             }
         )
+    }
+
+    aiModelMessage?.let { message ->
+        AppDialog(
+            title = "AI 模型",
+            onDismissRequest = viewModel::consumeAiModelMessage,
+            confirmText = "知道了",
+            dismissText = null,
+            onConfirm = viewModel::consumeAiModelMessage
+        ) {
+            Text(
+                text = message,
+                color = TextSecondary,
+                fontSize = 14.sp
+            )
+        }
     }
 
     if (infoDialogTitle != null && infoDialogMessage != null) {
@@ -440,11 +491,17 @@ private fun AiModelEditorDialog(
     alias: String,
     provider: String,
     endpoint: String,
+    modelName: String,
     apiKey: String,
+    supportsVision: Boolean,
+    isDefault: Boolean,
     onAliasChange: (String) -> Unit,
     onProviderChange: (String) -> Unit,
     onEndpointChange: (String) -> Unit,
+    onModelNameChange: (String) -> Unit,
     onApiKeyChange: (String) -> Unit,
+    onSupportsVisionChange: (Boolean) -> Unit,
+    onIsDefaultChange: (Boolean) -> Unit,
     onDismissRequest: () -> Unit,
     onConfirm: () -> Unit
 ) {
@@ -453,7 +510,7 @@ private fun AiModelEditorDialog(
         subtitle = "先把必要连接信息录入，后续再接真实调用。",
         onDismissRequest = onDismissRequest,
         confirmText = "保存",
-        confirmEnabled = alias.isNotBlank() && provider.isNotBlank() && endpoint.isNotBlank(),
+        confirmEnabled = alias.isNotBlank() && provider.isNotBlank() && endpoint.isNotBlank() && modelName.isNotBlank(),
         onConfirm = onConfirm
     ) {
         OutlinedTextField(
@@ -468,6 +525,13 @@ private fun AiModelEditorDialog(
             onValueChange = onProviderChange,
             singleLine = true,
             label = { Text("模型来源") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        OutlinedTextField(
+            value = modelName,
+            onValueChange = onModelNameChange,
+            singleLine = true,
+            label = { Text("Model Name") },
             modifier = Modifier.fillMaxWidth()
         )
         OutlinedTextField(
@@ -491,5 +555,19 @@ private fun AiModelEditorDialog(
             },
             modifier = Modifier.fillMaxWidth()
         )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(
+                checked = supportsVision,
+                onCheckedChange = onSupportsVisionChange
+            )
+            Text(text = "支持图片识别", color = TextSecondary, fontSize = 14.sp)
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(
+                checked = isDefault,
+                onCheckedChange = onIsDefaultChange
+            )
+            Text(text = "设为默认模型", color = TextSecondary, fontSize = 14.sp)
+        }
     }
 }

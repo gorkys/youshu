@@ -3,9 +3,11 @@ package com.youshu.app.data.backup
 import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
+import com.youshu.app.data.local.entity.AiModelConfig
 import com.youshu.app.data.local.entity.Category
 import com.youshu.app.data.local.entity.Item
 import com.youshu.app.data.local.entity.Location
+import com.youshu.app.data.repository.AiModelConfigRepository
 import com.youshu.app.data.repository.CategoryRepository
 import com.youshu.app.data.repository.ItemRepository
 import com.youshu.app.data.repository.LocationRepository
@@ -28,7 +30,8 @@ class AppBackupManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val itemRepository: ItemRepository,
     private val categoryRepository: CategoryRepository,
-    private val locationRepository: LocationRepository
+    private val locationRepository: LocationRepository,
+    private val aiModelConfigRepository: AiModelConfigRepository
 ) {
 
     private val json = Json {
@@ -76,6 +79,7 @@ class AppBackupManager @Inject constructor(
 
         categoryRepository.replaceAll(backup.categories.map { it.toEntity() })
         locationRepository.replaceAll(backup.locations.map { it.toEntity() })
+        aiModelConfigRepository.replaceAll(backup.aiModels.map { it.toEntity() })
         itemRepository.replaceAll(importedItems)
 
         workingDir.deleteRecursively()
@@ -88,6 +92,7 @@ class AppBackupManager @Inject constructor(
             exportedAt = System.currentTimeMillis(),
             categories = categoryRepository.getAllCategoriesSnapshot().map { CategorySnapshot.fromEntity(it) },
             locations = locationRepository.getAllLocationsSnapshot().map { LocationSnapshot.fromEntity(it) },
+            aiModels = aiModelConfigRepository.getAllConfigsSnapshot().map { AiModelSnapshot.fromEntity(it) },
             items = itemRepository.getAllItemsSnapshot().map { item ->
                 val images = item.imagePathList().mapIndexedNotNull { index, path ->
                     val file = File(path)
@@ -148,8 +153,53 @@ data class AppBackupPayload(
     val exportedAt: Long,
     val categories: List<CategorySnapshot>,
     val locations: List<LocationSnapshot>,
+    val aiModels: List<AiModelSnapshot> = emptyList(),
     val items: List<ItemSnapshot>
 )
+
+@Serializable
+data class AiModelSnapshot(
+    val id: Long,
+    val alias: String,
+    val provider: String,
+    val endpoint: String,
+    val modelName: String,
+    val supportsVision: Boolean,
+    val isDefault: Boolean,
+    val createdAt: Long,
+    val updatedAt: Long
+) {
+    fun toEntity(): AiModelConfig {
+        return AiModelConfig(
+            id = id,
+            alias = alias,
+            provider = provider,
+            endpoint = endpoint,
+            modelName = modelName,
+            apiKey = "",
+            supportsVision = supportsVision,
+            isDefault = isDefault,
+            createdAt = createdAt,
+            updatedAt = updatedAt
+        )
+    }
+
+    companion object {
+        fun fromEntity(config: AiModelConfig): AiModelSnapshot {
+            return AiModelSnapshot(
+                id = config.id,
+                alias = config.alias,
+                provider = config.provider,
+                endpoint = config.endpoint,
+                modelName = config.modelName,
+                supportsVision = config.supportsVision,
+                isDefault = config.isDefault,
+                createdAt = config.createdAt,
+                updatedAt = config.updatedAt
+            )
+        }
+    }
+}
 
 @Serializable
 data class CategorySnapshot(
