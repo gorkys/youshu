@@ -156,13 +156,13 @@ fun ItemCard(
                                 text = "已用完",
                                 backgroundColor = TagOrange,
                                 contentColor = TagOrangeText
-                            )
-                            PillTag(
-                                text = item.rating?.let { "${it}星评价" } ?: "待评价",
-                                backgroundColor = if (item.rating == null) TagRed else TagGreen,
-                                contentColor = if (item.rating == null) TagRedText else TagGreenText
-                            )
-                        }
+                              )
+                              PillTag(
+                                text = if (item.hasReview()) "${item.rating}星评价" else "待评价",
+                                backgroundColor = if (item.isPendingReview()) TagRed else TagGreen,
+                                contentColor = if (item.isPendingReview()) TagRedText else TagGreenText
+                              )
+                          }
 
                         Item.STATUS_DISCARDED -> {
                             PillTag(

@@ -50,6 +50,14 @@ data class Item(
         return imagePathList().firstOrNull().orEmpty()
     }
 
+    fun isPendingReview(): Boolean {
+        return status == STATUS_USED_UP && (rating == null || rating <= 0)
+    }
+
+    fun hasReview(): Boolean {
+        return status == STATUS_USED_UP && rating != null && rating > 0
+    }
+
     companion object {
         const val STATUS_IN_USE = 0
         const val STATUS_USED_UP = 1

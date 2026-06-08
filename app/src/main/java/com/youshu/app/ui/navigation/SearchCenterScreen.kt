@@ -80,13 +80,11 @@ fun SearchCenterScreen(
 ) {
     val query by viewModel.searchQuery.collectAsState()
     val history by viewModel.searchHistory.collectAsState()
-    val allItems by viewModel.allItems.collectAsState()
+    val results by viewModel.searchResults.collectAsState()
     val aiSearchMessage by viewModel.aiSearchMessage.collectAsState()
     val isAiSearching by viewModel.isAiSearching.collectAsState()
     var openedItemId by remember { mutableStateOf<Long?>(null) }
     var pendingDeleteItem by remember { mutableStateOf<Item?>(null) }
-
-    val results = viewModel.searchResults(allItems)
 
     Box(
         modifier = Modifier

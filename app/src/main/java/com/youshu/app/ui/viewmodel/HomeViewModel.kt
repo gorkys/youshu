@@ -1,14 +1,11 @@
 package com.youshu.app.ui.viewmodel
 
+import android.util.Log
+import com.youshu.app.BuildConfig
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.youshu.app.data.ai.AiCallResult
-import com.youshu.app.data.ai.AiPromptBuilder
-import com.youshu.app.data.ai.AiRatingState
 import com.youshu.app.data.ai.AiRepository
-import com.youshu.app.data.ai.AiSearchIntent
-import com.youshu.app.data.ai.AiSearchSort
-import com.youshu.app.data.ai.AiSearchStatus
 import com.youshu.app.data.local.dao.CategoryDao
 import com.youshu.app.data.local.entity.Item
 import com.youshu.app.data.local.entity.Category
@@ -16,7 +13,10 @@ import com.youshu.app.data.local.entity.ItemDetail
 import com.youshu.app.data.local.entity.Location
 import com.youshu.app.data.repository.ItemRepository
 import com.youshu.app.data.repository.LocationRepository
-import com.youshu.app.util.LegacyTextNormalizer
+import com.youshu.app.data.search.LocalSearchParser
+import com.youshu.app.data.search.SearchCriteria
+import com.youshu.app.data.search.SearchEngine
+import com.youshu.app.data.search.SearchIntentKind
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -73,8 +73,11 @@ class HomeViewModel @Inject constructor(
     private val _searchHistory = MutableStateFlow<List<String>>(emptyList())
     val searchHistory: StateFlow<List<String>> = _searchHistory.asStateFlow()
 
-    private val _aiSearchIntent = MutableStateFlow<AiSearchIntent?>(null)
-    val aiSearchIntent: StateFlow<AiSearchIntent?> = _aiSearchIntent.asStateFlow()
+    private val searchEngine = SearchEngine()
+    private val localSearchParser = LocalSearchParser()
+
+    private val _searchCriteria = MutableStateFlow<SearchCriteria?>(null)
+    val searchCriteria: StateFlow<SearchCriteria?> = _searchCriteria.asStateFlow()
 
     private val _aiSearchMessage = MutableStateFlow<String?>(null)
     val aiSearchMessage: StateFlow<String?> = _aiSearchMessage.asStateFlow()
@@ -82,9 +85,23 @@ class HomeViewModel @Inject constructor(
     private val _isAiSearching = MutableStateFlow(false)
     val isAiSearching: StateFlow<Boolean> = _isAiSearching.asStateFlow()
 
+    val searchResults: StateFlow<List<ItemDetail>> = combine(
+        allItems,
+        locations,
+        _searchQuery,
+        _searchCriteria
+    ) { items, locations, query, criteria ->
+        buildSearchResults(
+            query = query,
+            items = items,
+            locations = locations,
+            criteria = criteria
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     fun updateSearchQuery(query: String) {
         _searchQuery.value = query
-        _aiSearchIntent.value = null
+        _searchCriteria.value = null
         _aiSearchMessage.value = null
     }
 
@@ -108,14 +125,27 @@ class HomeViewModel @Inject constructor(
         _isAiSearching.value = true
         _aiSearchMessage.value = "AI 正在理解搜索条件..."
         viewModelScope.launch {
-            when (val result = aiRepository.parseSearchIntent(query)) {
+            val localCriteria = localSearchParser.parse(query)
+            if (localCriteria.kind != SearchIntentKind.PLAIN_TEXT) {
+                _searchCriteria.value = localCriteria
+                _aiSearchMessage.value = localCriteria.summary ?: "已按本地规则解析搜索条件"
+                _isAiSearching.value = false
+                return@launch
+            }
+
+            when (val result = aiRepository.parseSearchCriteria(query)) {
                 is AiCallResult.Success -> {
-                    _aiSearchIntent.value = result.data
-                    _aiSearchMessage.value = result.data.summary ?: "AI 已解析搜索条件"
+                    if (result.data.isExecutableAiPlan()) {
+                        _searchCriteria.value = result.data
+                        _aiSearchMessage.value = result.data.summary ?: "AI 已解析搜索条件"
+                    } else {
+                        _searchCriteria.value = localCriteria
+                        _aiSearchMessage.value = "AI 没有给出可执行搜索条件，已使用普通搜索"
+                    }
                 }
 
                 is AiCallResult.Error -> {
-                    _aiSearchIntent.value = null
+                    _searchCriteria.value = localCriteria
                     _aiSearchMessage.value = "${result.message}，已使用普通搜索"
                 }
             }
@@ -123,21 +153,56 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    private fun buildSearchResults(
+        query: String,
+        items: List<ItemDetail>,
+        locations: List<Location>,
+        criteria: SearchCriteria?
+    ): List<ItemDetail> {
+        val normalizedQuery = query.trim()
+        if (normalizedQuery.isBlank()) return emptyList()
+        val resolvedCriteria = criteria ?: localSearchParser.parse(normalizedQuery)
+        val results = searchEngine.filter(items, locations, resolvedCriteria)
+        val finalResults = if (results.isEmpty() && resolvedCriteria.canFallbackToPlainText()) {
+            searchEngine.filter(items, locations, SearchCriteria(text = normalizedQuery))
+        } else {
+            results
+        }
+        if (BuildConfig.DEBUG) {
+            Log.d(
+                SEARCH_UI_LOG_TAG,
+                "query=$normalizedQuery items=${items.size} criteria=$resolvedCriteria results=${finalResults.size}"
+            )
+        }
+        return finalResults
+    }
+
     fun searchResults(items: List<ItemDetail>): List<ItemDetail> {
         val query = _searchQuery.value.trim()
         if (query.isBlank()) return emptyList()
-        val intent = _aiSearchIntent.value
-        val matched = if (intent == null) {
-            items.filter { it.matchesPlainQuery(query) }
+        val sourceItems = allItems.value.ifEmpty { items }
+        val criteria = _searchCriteria.value ?: localSearchParser.parse(query)
+        val results = searchEngine.filter(sourceItems, locations.value, criteria)
+        return if (results.isEmpty() && criteria.canFallbackToPlainText()) {
+            searchEngine.filter(sourceItems, locations.value, SearchCriteria(text = query))
         } else {
-            val aiMatched = items.filter { it.matchesIntent(intent) }
-            aiMatched.ifEmpty { items.filter { it.matchesPlainQuery(query) } }
+            results
         }
-        return when (intent?.sort) {
-            AiSearchSort.EXPIRE_ASC -> matched.sortedBy { it.item.expireTime ?: Long.MAX_VALUE }
-            AiSearchSort.NAME_ASC -> matched.sortedBy { it.item.name }
-            else -> matched.sortedByDescending { it.item.createdAt }
-        }
+    }
+
+    private fun SearchCriteria.canFallbackToPlainText(): Boolean {
+        return kind == SearchIntentKind.PLAIN_TEXT || kind == SearchIntentKind.FIND_ITEM
+    }
+
+    private fun SearchCriteria.isExecutableAiPlan(): Boolean {
+        return itemIds.isNotEmpty() ||
+            categoryIds.isNotEmpty() ||
+            locationIds.isNotEmpty() ||
+            !itemName.isNullOrBlank() ||
+            !categoryName.isNullOrBlank() ||
+            !locationName.isNullOrBlank() ||
+            semanticTerms.isNotEmpty() ||
+            hasStructuredFilters()
     }
 
     fun moveToTrash(item: Item) {
@@ -158,68 +223,7 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun ItemDetail.matchesPlainQuery(query: String): Boolean {
-        val relatedLocationNames = locationNamesForItem()
-        return listOf(
-            item.name,
-            categoryName.orEmpty(),
-            locationName.orEmpty(),
-            relatedLocationNames.joinToString(" "),
-            item.note
-        ).any { it.contains(query, ignoreCase = true) }
-    }
-
-    private fun ItemDetail.matchesIntent(intent: AiSearchIntent): Boolean {
-        val now = System.currentTimeMillis()
-        val statusMatched = when (intent.status ?: AiSearchStatus.IN_USE) {
-            AiSearchStatus.IN_USE -> item.status == Item.STATUS_IN_USE
-            AiSearchStatus.USED_UP -> item.status == Item.STATUS_USED_UP
-            AiSearchStatus.ALL -> true
-        }
-        val ratingMatched = when (intent.ratingState ?: AiRatingState.ANY) {
-            AiRatingState.PENDING -> item.status == Item.STATUS_USED_UP && item.rating == null
-            AiRatingState.REVIEWED -> item.status == Item.STATUS_USED_UP && item.rating != null
-            AiRatingState.ANY -> true
-        }
-        val categoryMatched = intent.categoryName?.let { requested ->
-            namesMatch(categoryName, requested)
-        } ?: true
-        val locationMatched = intent.locationName?.let { requested ->
-            locationNamesForItem().any { namesMatch(it, requested) }
-        } ?: true
-        val expiringMatched = intent.expiringWithinDays?.let { days ->
-            val expireTime = item.expireTime ?: return@let false
-            expireTime in now..(now + days * 24L * 60L * 60L * 1000L)
-        } ?: true
-        val hasStructuredFilters = intent.categoryName != null ||
-            intent.locationName != null ||
-            intent.expiringWithinDays != null ||
-            intent.ratingState != null ||
-            intent.status != null
-        val keywordsMatched = hasStructuredFilters || intent.keywords.all { keyword ->
-            AiPromptBuilder.buildItemDigest(this).contains(keyword, ignoreCase = true)
-        }
-
-        return statusMatched && ratingMatched && categoryMatched && locationMatched && expiringMatched && keywordsMatched
-    }
-
-    private fun ItemDetail.locationNamesForItem(): List<String> {
-        val allLocations = locations.value
-        val currentLocationId = item.locationId ?: return listOfNotNull(locationName)
-        val result = mutableListOf<String>()
-        var cursor = allLocations.firstOrNull { it.id == currentLocationId }
-        if (cursor == null) {
-            locationName?.let(result::add)
-        }
-        while (cursor != null) {
-            result += cursor.name
-            val parentId = cursor.parentId
-            cursor = parentId?.let { id -> allLocations.firstOrNull { it.id == id } }
-        }
-        return result.distinct()
-    }
-
-    private fun namesMatch(actual: String?, requested: String): Boolean {
-        return LegacyTextNormalizer.namesMatch(actual, requested)
+    private companion object {
+        const val SEARCH_UI_LOG_TAG = "AiSearchUi"
     }
 }

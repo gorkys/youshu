@@ -31,15 +31,40 @@ data class AiItemSuggestion(
 
 @Serializable
 data class AiSearchIntent(
+    val intentType: AiSearchIntentType = AiSearchIntentType.UNKNOWN,
+    val itemName: String? = null,
+    val itemIds: List<Long> = emptyList(),
+    val categoryIds: List<Long> = emptyList(),
+    val locationIds: List<Long> = emptyList(),
     val keywords: List<String> = emptyList(),
+    val semanticTerms: List<String> = emptyList(),
     val categoryName: String? = null,
     val locationName: String? = null,
     val status: AiSearchStatus? = null,
     val expiringWithinDays: Int? = null,
     val ratingState: AiRatingState? = null,
     val sort: AiSearchSort? = null,
+    val confidence: Double? = null,
     val summary: String? = null
 )
+
+@Serializable
+enum class AiSearchIntentType {
+    @SerialName("find_item_location")
+    FIND_ITEM_LOCATION,
+
+    @SerialName("filter_items")
+    FILTER_ITEMS,
+
+    @SerialName("browse_location")
+    BROWSE_LOCATION,
+
+    @SerialName("browse_category")
+    BROWSE_CATEGORY,
+
+    @SerialName("unknown")
+    UNKNOWN
+}
 
 @Serializable
 enum class AiSearchStatus {

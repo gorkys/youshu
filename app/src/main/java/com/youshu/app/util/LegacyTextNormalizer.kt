@@ -61,11 +61,11 @@ object LegacyTextNormalizer {
 
     fun normalizeName(name: String): String {
         val trimmed = name.trim()
-        return nameReplacements[trimmed] ?: trimmed
+        return nameReplacements[trimmed] ?: semanticNameAliases[trimmed] ?: trimmed
     }
 
     fun aliases(name: String): Set<String> {
-        val trimmed = name.trim()
+        val trimmed = normalizeName(name)
         val canonical = normalizeName(trimmed)
         val result = linkedSetOf(canonical, trimmed)
         nameReplacements.forEach { (legacy, normalized) ->
@@ -77,10 +77,10 @@ object LegacyTextNormalizer {
     }
 
     fun namesMatch(actual: String?, requested: String?): Boolean {
-        val actualValue = actual?.trim()?.takeIf { it.isNotBlank() } ?: return false
-        val requestedValue = requested?.trim()?.takeIf { it.isNotBlank() } ?: return false
+        val actualValue = actual?.let(::normalizeName)?.takeIf { it.isNotBlank() } ?: return false
+        val requestedValue = requested?.let(::normalizeSearchText)?.takeIf { it.isNotBlank() } ?: return false
         val actualAliases = aliases(actualValue)
-        val requestedAliases = aliases(requestedValue)
+        val requestedAliases = aliases(requestedValue) + requestedValue
         return actualAliases.any { actualAlias ->
             requestedAliases.any { requestedAlias ->
                 actualAlias.equals(requestedAlias, ignoreCase = true) ||
@@ -89,4 +89,75 @@ object LegacyTextNormalizer {
             }
         }
     }
+
+    fun normalizeSearchText(text: String): String {
+        var value = normalizeName(text)
+            .replace(Regex("[\\s,，。.!！?？、：:；;（）()【】\\[\\]{}]+"), "")
+            .trim()
+        intentPhrases.forEach { affix ->
+            value = value.replace(affix, "")
+        }
+        locationSuffixes.forEach { suffix ->
+            if (value.length > suffix.length + 1 && value.endsWith(suffix)) {
+                value = value.removeSuffix(suffix)
+            }
+        }
+        return normalizeName(value)
+    }
+
+    private val intentPhrases = listOf(
+        "用户想",
+        "帮我",
+        "请问",
+        "我的",
+        "查询",
+        "查看",
+        "查找",
+        "搜索",
+        "在哪儿",
+        "在哪里",
+        "在哪",
+        "哪儿",
+        "哪里",
+        "有什么",
+        "有哪些",
+        "有啥",
+        "放在哪",
+        "放哪",
+        "位置",
+        "物品",
+        "东西",
+        "在用",
+        "未用完",
+        "还能用",
+        "已用完",
+        "用完",
+        "的"
+    )
+
+    private val locationSuffixes = listOf(
+        "上的",
+        "里的",
+        "内的",
+        "中的",
+        "上面",
+        "里面",
+        "里边",
+        "外面",
+        "附近",
+        "这里",
+        "那里",
+        "上",
+        "里",
+        "内",
+        "中"
+    )
+
+    private val semanticNameAliases = mapOf(
+        "桌面" to "台面",
+        "桌上" to "台面",
+        "台上" to "台面",
+        "操作台" to "台面",
+        "厨房台面" to "台面"
+    )
 }

@@ -520,12 +520,8 @@ private fun matchesDetailScope(itemDetail: ItemDetail, scope: String): Boolean {
     val item = itemDetail.item
     return when (scope) {
         Screen.Detail.ScopeUsedUp -> item.status == Item.STATUS_USED_UP
-        Screen.Detail.ScopePendingReview -> {
-            item.status == Item.STATUS_USED_UP && item.rating == null
-        }
-        Screen.Detail.ScopeReviewed -> {
-            item.status == Item.STATUS_USED_UP && item.rating != null
-        }
+        Screen.Detail.ScopePendingReview -> item.isPendingReview()
+        Screen.Detail.ScopeReviewed -> item.hasReview()
         else -> true
     }
 }

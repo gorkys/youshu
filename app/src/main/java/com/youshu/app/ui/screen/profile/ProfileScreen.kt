@@ -48,6 +48,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.youshu.app.BuildConfig
 import com.youshu.app.data.ai.AiProviders
 import com.youshu.app.ui.components.AppDecorativeBackground
 import com.youshu.app.ui.components.AppDialog
@@ -214,10 +215,10 @@ fun ProfileScreen(
                 MenuRow(
                     icon = Icons.Default.Info,
                     title = "关于我们",
-                    subtitle = "版本 1.1.0",
+                    subtitle = "版本 ${BuildConfig.VERSION_NAME}",
                     onClick = {
                         infoDialogTitle = "关于我们"
-                        infoDialogMessage = "有数：拍一下、存一下，做到心中有数。\n开源地址：https://github.com/gorkys/youshu"
+                        infoDialogMessage = "有数：拍一下、存一下，做到心中有数。\n版本：${BuildConfig.VERSION_NAME}\n开源地址：https://github.com/gorkys/youshu"
                     }
                 )
             }

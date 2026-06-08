@@ -1,5 +1,6 @@
 package com.youshu.app.ui.components
 
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
@@ -37,6 +38,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -79,10 +81,24 @@ fun ItemImageGallery(
         return
     }
 
-    var draggingIndex by remember { mutableIntStateOf(-1) }
+    val density = LocalDensity.current
+    val dragStepPx = with(density) { (120.dp + 10.dp).toPx() }
     var draggingPath by remember { mutableStateOf<String?>(null) }
+    var dragStartIndex by remember { mutableIntStateOf(-1) }
+    var dragTargetIndex by remember { mutableIntStateOf(-1) }
     var dragOffsetX by remember { mutableFloatStateOf(0f) }
-    val itemWidth = 120f
+    val displayPaths = remember(imagePaths, draggingPath, dragTargetIndex) {
+        val path = draggingPath
+        val targetIndex = dragTargetIndex
+        if (path == null || targetIndex !in imagePaths.indices) {
+            imagePaths
+        } else {
+            imagePaths.toMutableList().apply {
+                remove(path)
+                add(targetIndex.coerceIn(0, size), path)
+            }
+        }
+    }
 
     Column(modifier = modifier) {
         Text(
@@ -94,37 +110,60 @@ fun ItemImageGallery(
             modifier = Modifier.padding(top = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            itemsIndexed(imagePaths, key = { _, path -> path }) { index, path ->
+            itemsIndexed(displayPaths, key = { _, path -> path }) { index, path ->
+                val sourceIndex = imagePaths.indexOf(path).takeIf { it >= 0 } ?: index
+                val isDragging = draggingPath == path
+                val dragVisualOffset = if (isDragging) {
+                    dragOffsetX - (dragTargetIndex - dragStartIndex) * dragStepPx
+                } else {
+                    0f
+                }
                 DraggableImageCard(
                     imagePath = path,
                     title = if (index == 0) "主图" else "细节图",
-                    onRemove = { onRemoveImage(index) },
+                    onRemove = { onRemoveImage(sourceIndex) },
                     onMove = { deltaX ->
                         dragOffsetX += deltaX
-                        val currentIndex = imagePaths.indexOf(path).takeIf { it >= 0 } ?: index
-                        val targetIndex = when {
-                            dragOffsetX > itemWidth / 2 && currentIndex < imagePaths.lastIndex -> currentIndex + 1
-                            dragOffsetX < -itemWidth / 2 && currentIndex > 0 -> currentIndex - 1
-                            else -> currentIndex
-                        }
-                        if (targetIndex != currentIndex) {
-                            onMoveImage(currentIndex, targetIndex)
-                            draggingIndex = targetIndex
-                            dragOffsetX -= (targetIndex - currentIndex) * itemWidth
-                        }
+                        val startIndex = dragStartIndex.takeIf { it in imagePaths.indices } ?: sourceIndex
+                        val targetIndex = (startIndex + calculateDragSteps(dragOffsetX, dragStepPx))
+                            .coerceIn(0, imagePaths.lastIndex)
+                        dragTargetIndex = targetIndex
                     },
                     onDragStart = {
-                        draggingIndex = index
                         draggingPath = path
+                        dragStartIndex = sourceIndex
+                        dragTargetIndex = sourceIndex
                         dragOffsetX = 0f
                     },
                     onDragEnd = {
-                        draggingIndex = -1
+                        val fromIndex = imagePaths.indexOf(path).takeIf { it >= 0 } ?: dragStartIndex
+                        val toIndex = dragTargetIndex
+                        if (fromIndex in imagePaths.indices && toIndex in imagePaths.indices && fromIndex != toIndex) {
+                            onMoveImage(fromIndex, toIndex)
+                        }
                         draggingPath = null
+                        dragStartIndex = -1
+                        dragTargetIndex = -1
                         dragOffsetX = 0f
                     },
-                    isDragging = draggingPath == path,
-                    dragOffsetX = if (draggingPath == path) dragOffsetX else 0f
+                    onDragCancel = {
+                        draggingPath = null
+                        dragStartIndex = -1
+                        dragTargetIndex = -1
+                        dragOffsetX = 0f
+                    },
+                    isDragging = isDragging,
+                    dragOffsetX = dragVisualOffset,
+                    modifier = if (isDragging) {
+                        Modifier
+                    } else {
+                        Modifier.animateItem(
+                            placementSpec = spring(
+                                dampingRatio = 0.84f,
+                                stiffness = 360f
+                            )
+                        )
+                    }
                 )
             }
             item {
@@ -148,11 +187,13 @@ private fun DraggableImageCard(
     onMove: (Float) -> Unit,
     onDragStart: () -> Unit,
     onDragEnd: () -> Unit,
+    onDragCancel: () -> Unit,
     isDragging: Boolean,
-    dragOffsetX: Float
+    dragOffsetX: Float,
+    modifier: Modifier = Modifier
 ) {
     Box(
-        modifier = Modifier
+        modifier = modifier
             .size(width = 120.dp, height = 120.dp)
             .zIndex(if (isDragging) 1f else 0f)
             .graphicsLayer {
@@ -165,7 +206,7 @@ private fun DraggableImageCard(
                 detectDragGesturesAfterLongPress(
                     onDragStart = { onDragStart() },
                     onDragEnd = onDragEnd,
-                    onDragCancel = onDragEnd,
+                    onDragCancel = onDragCancel,
                     onDrag = { change, dragAmount ->
                         change.consume()
                         onMove(dragAmount.x)
@@ -180,6 +221,16 @@ private fun DraggableImageCard(
             modifier = Modifier.matchParentSize()
         )
     }
+}
+
+private fun calculateDragSteps(offsetPx: Float, stepPx: Float): Int {
+    if (stepPx <= 0f || offsetPx == 0f) return 0
+    val thresholdRatio = 0.68f
+    val direction = if (offsetPx > 0f) 1 else -1
+    val steps = kotlin.math.abs(offsetPx / stepPx)
+    val wholeSteps = steps.toInt()
+    val fractionalStep = steps - wholeSteps
+    return direction * (wholeSteps + if (fractionalStep >= thresholdRatio) 1 else 0)
 }
 
 @Composable

@@ -1,9 +1,11 @@
 package com.youshu.app.data.ai
 
+import android.util.Log
 import com.youshu.app.BuildConfig
 import com.youshu.app.data.local.entity.AiModelConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -15,13 +17,19 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class OpenAiCompatibleClient @Inject constructor() : AiClient {
 
-    private val client = OkHttpClient()
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(20, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)
+        .callTimeout(75, TimeUnit.SECONDS)
+        .build()
     private val json = Json {
         ignoreUnknownKeys = true
         explicitNulls = false
@@ -66,8 +74,11 @@ class OpenAiCompatibleClient @Inject constructor() : AiClient {
         val requestBody = OpenAiChatRequest(
             model = config.modelName,
             messages = messages,
-            temperature = 0.1
+            temperature = 0.1,
+            maxTokens = 800
         )
+        val startedAt = System.currentTimeMillis()
+        logHttp("request model=${config.modelName} endpoint=${config.endpoint} chars=${messages.roughTextLength()}")
         val request = Request.Builder()
             .url("${config.endpoint.trimEnd('/')}/chat/completions")
             .header("Content-Type", "application/json")
@@ -92,12 +103,15 @@ class OpenAiCompatibleClient @Inject constructor() : AiClient {
                 val parsed = json.decodeFromString<OpenAiChatResponse>(body)
                 val content = parsed.choices.firstOrNull()?.message?.content.orEmpty()
                 if (content.isBlank()) {
+                    logHttp("empty response duration=${System.currentTimeMillis() - startedAt}ms")
                     AiCallResult.Error("AI 未返回有效内容")
                 } else {
+                    logHttp("success duration=${System.currentTimeMillis() - startedAt}ms contentChars=${content.length}")
                     AiCallResult.Success(extractJson(content))
                 }
             }
         }.getOrElse { throwable ->
+            logHttp("failure duration=${System.currentTimeMillis() - startedAt}ms ${throwable::class.java.simpleName}: ${throwable.message}")
             AiCallResult.Error(buildCallFailureMessage(throwable), throwable)
         }
     }
@@ -138,10 +152,20 @@ class OpenAiCompatibleClient @Inject constructor() : AiClient {
         )
     }
 
+    private fun List<OpenAiMessage>.roughTextLength(): Int {
+        return sumOf { it.content.toString().length }
+    }
+
+    private fun logHttp(message: String) {
+        if (BuildConfig.DEBUG) {
+            Log.d(AI_HTTP_LOG_TAG, message)
+        }
+    }
+
     private inline fun <reified T> AiCallResult<String>.mapJson(): AiCallResult<T> {
         return when (this) {
             is AiCallResult.Success -> runCatching {
-                json.decodeFromString<T>(data)
+                json.decodeFromString<T>(normalizeEnumAliases<T>(data))
             }.fold(
                 onSuccess = { AiCallResult.Success(it) },
                 onFailure = {
@@ -150,6 +174,32 @@ class OpenAiCompatibleClient @Inject constructor() : AiClient {
             )
 
             is AiCallResult.Error -> this
+        }
+    }
+
+    private inline fun <reified T> normalizeEnumAliases(rawJson: String): String {
+        if (T::class != AiSearchIntent::class) return rawJson
+        return rawJson
+            .replaceEnumValue("intentType", "FIND_ITEM_LOCATION", "find_item_location")
+            .replaceEnumValue("intentType", "FILTER_ITEMS", "filter_items")
+            .replaceEnumValue("intentType", "BROWSE_LOCATION", "browse_location")
+            .replaceEnumValue("intentType", "BROWSE_CATEGORY", "browse_category")
+            .replaceEnumValue("intentType", "UNKNOWN", "unknown")
+            .replaceEnumValue("status", "IN_USE", "in_use")
+            .replaceEnumValue("status", "USED_UP", "used_up")
+            .replaceEnumValue("status", "ALL", "all")
+            .replaceEnumValue("ratingState", "PENDING", "pending")
+            .replaceEnumValue("ratingState", "PENDING_REVIEW", "pending")
+            .replaceEnumValue("ratingState", "REVIEWED", "reviewed")
+            .replaceEnumValue("ratingState", "ANY", "any")
+            .replaceEnumValue("sort", "CREATED_DESC", "created_desc")
+            .replaceEnumValue("sort", "EXPIRE_ASC", "expire_asc")
+            .replaceEnumValue("sort", "NAME_ASC", "name_asc")
+    }
+
+    private fun String.replaceEnumValue(key: String, from: String, to: String): String {
+        return replace(Regex("(\"$key\"\\s*:\\s*\")$from(\")", RegexOption.IGNORE_CASE)) { match ->
+            "${match.groupValues[1]}$to${match.groupValues[2]}"
         }
     }
 
@@ -198,6 +248,7 @@ class OpenAiCompatibleClient @Inject constructor() : AiClient {
     }
 
     private companion object {
+        const val AI_HTTP_LOG_TAG = "AiHttp"
         val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
     }
 }
@@ -206,7 +257,9 @@ class OpenAiCompatibleClient @Inject constructor() : AiClient {
 private data class OpenAiChatRequest(
     val model: String,
     val messages: List<OpenAiMessage>,
-    val temperature: Double
+    val temperature: Double,
+    @SerialName("max_tokens")
+    val maxTokens: Int
 )
 
 @Serializable
